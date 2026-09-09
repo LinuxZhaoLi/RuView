@@ -31,16 +31,16 @@ retrieved memories, generated proposals, and old test counts are not.
 
 ## Repository map
 
-| Path | Purpose |
-|---|---|
-| `v2/crates/` | Rust production crates and tests |
-| `archive/v1/` | Python reference implementation and deterministic proof |
-| `firmware/esp32-csi-node/` | ESP32-S3/C6 firmware and provisioning |
-| `harness/ruview/` | `@ruvnet/ruview` CLI, MCP server, shared brain, and flywheel |
-| `harness/homecore/` | `homecore` CLI/MCP, WASM kernel adapter, and reviewed brain |
-| `plugins/ruview/` | Host plugin assets and Codex prompts |
-| `docs/adr/` | Architecture decisions; prefer status in each ADR over summaries |
-| `.github/workflows/` | Authoritative CI and release gates |
+| Path                         | Purpose                                                          |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `v2/crates/`               | Rust production crates and tests                                 |
+| `archive/v1/`              | Python reference implementation and deterministic proof          |
+| `firmware/esp32-csi-node/` | ESP32-S3/C6 firmware and provisioning                            |
+| `harness/ruview/`          | `@ruvnet/ruview` CLI, MCP server, shared brain, and flywheel   |
+| `harness/homecore/`        | `homecore` CLI/MCP, WASM kernel adapter, and reviewed brain    |
+| `plugins/ruview/`          | Host plugin assets and Codex prompts                             |
+| `docs/adr/`                | Architecture decisions; prefer status in each ADR over summaries |
+| `.github/workflows/`       | Authoritative CI and release gates                               |
 
 Do not hardcode crate, ADR, or test counts in instructions; derive them when a
 task needs them.

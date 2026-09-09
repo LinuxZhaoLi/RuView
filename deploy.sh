@@ -2,7 +2,9 @@
 
 # WiFi-DensePose Deployment Script
 # This script orchestrates the complete deployment of WiFi-DensePose infrastructure
+# 此脚本编排WiFi-DensePose基础设施的完整部署
 
+# 设置环境变量 bash shell 脚本里非常经典的**严格模式配置**，
 set -euo pipefail
 
 # Configuration
@@ -10,6 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_NAME="wifi-densepose"
 ENVIRONMENT="${ENVIRONMENT:-production}"
 AWS_REGION="${AWS_REGION:-us-west-2}"
+# 配置Kubeconfig路径
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-~/.kube/config}"
 
 # Colors for output

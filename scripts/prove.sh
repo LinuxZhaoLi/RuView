@@ -5,7 +5,12 @@
 # The answer is reproducibility. Clone the repo, run THIS script, and every
 # headline claim is either VERIFIED on your machine (MEASURED) or printed as
 # "CLAIMED — not reproduced here (why)". Nothing is asserted without a command.
+## prove.sh - RuView / wifi-densepose的单命令复制工具
 #
+#任务：这个项目被公开指责为“人工智能垃圾/假货”。
+#答案是可重复性。克隆repo，运行这个脚本，等等
+#标题声明要么在您的机器上验证（MEASURED），要么打印为
+#“声明-这里没有复制（为什么）”。没有命令，什么都不能断言。
 # Usage:
 #   bash scripts/prove.sh            # core gate + anti-slop assertion tests
 #   bash scripts/prove.sh --full     # also run the tch/GPU/dataset-gated claims
@@ -13,6 +18,9 @@
 # Exit code 0 only if every NON-gated claim passes. Gated claims never fail the
 # run; they print exactly what they need (libtorch, a GPU, a dataset) so you can
 # reproduce them yourself.
+#仅当每个非门控索赔通过时退出代码0。门控索赔从来不会失败
+#运行;他们打印他们需要的东西（libtorch， GPU，数据集），所以你可以
+#自己复制它们。
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -30,30 +38,31 @@ echo "repo: $ROOT"
 echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 hr
 
-# ── 1. HARD GATE: Rust workspace tests (no native libs required) ────────────
-echo "[1] Rust workspace tests  (cargo test --workspace --no-default-features)"
+# ── 1. HARD GATE: Rust workspace tests (no native libs required) Rust工作区测试（不需要本地库）────────────
+echo "[1] Rust工作区测试  (cargo test --workspace --no-default-features)"
+# 如果安装了cargo
 if command -v cargo >/dev/null 2>&1; then
   if ( cd v2 && cargo test --workspace --no-default-features ) > /tmp/prove_ws.log 2>&1; then
     n=$(grep -oE "result: ok\. [0-9]+ passed" /tmp/prove_ws.log | grep -oE "[0-9]+" | awk '{s+=$1} END {print s}')
-    PASS "workspace tests green — ${n:-?} passed, 0 failed  (CARGO exit 0)"
+    PASS "Rust工作区测试通过 — ${n:-?} 通过, 0失败  (CARGO exit 0)"
   else
-    FAIL "workspace tests — see /tmp/prove_ws.log (grep 'test result: FAILED')"
+    FAIL "Rust工作区测试失败 — 查看 /tmp/prove_ws.log (grep 'test result: FAILED')"
   fi
 else
-  SKIP "cargo not installed — install Rust to run the workspace gate"
+  SKIP "cargo未安装 — 安装Rust以运行工作区测试门"
 fi
 hr
 
-# ── 2. HARD GATE: deterministic Python pipeline proof (SHA-256) ─────────────
-echo "[2] Deterministic CSI pipeline proof  (archive/v1/data/proof/verify.py)"
+# ── 2. HARD GATE: deterministic Python pipeline proof (SHA-256) Python确定性管道证明（SHA-256）────────────
+echo "[2] Python确定性 CSI管道证明  (archive/v1/data/proof/verify.py)"
 if command -v python >/dev/null 2>&1; then
   if python archive/v1/data/proof/verify.py > /tmp/prove_py.log 2>&1 && grep -q "VERDICT: PASS" /tmp/prove_py.log; then
-    PASS "Python proof VERDICT: PASS (bit-exact SHA-256 of reference features)"
+    PASS "Python确定性管道证明通过 — 位精确的SHA-256（参考特征）"
   else
-    FAIL "Python proof — see /tmp/prove_py.log"
+    FAIL "Python确定性管道证明失败 — 查看 /tmp/prove_py.log"
   fi
 else
-  SKIP "python not installed — install Python 3.10+ to run the deterministic proof"
+  SKIP "python未安装 — 安装Python 3.10+"
 fi
 hr
 
@@ -61,10 +70,10 @@ hr
 # Format: claim_test <crate> <test-name-filter> <human claim> [extra cargo args]
 claim_test(){
   local crate="$1" filt="$2" desc="$3"; shift 3
-  if ! command -v cargo >/dev/null 2>&1; then SKIP "$desc (cargo missing)"; return; fi
+  if ! command -v cargo >/dev/null 2>&1; then SKIP "$desc (cargo未安装)"; return; fi
   if ( cd v2 && cargo test -p "$crate" "$@" "$filt" ) > /tmp/prove_claim.log 2>&1 \
      && grep -qE "test result: ok\. [1-9]" /tmp/prove_claim.log; then
-    PASS "$desc"
+    PASS "$desc 通过"
   else
     # distinguish "didn't run" (feature/lib gated) from real failure
     if grep -qE "0 passed|filtered out;? finished|error: no test target" /tmp/prove_claim.log \
@@ -79,21 +88,21 @@ claim_test(){
 # Variant for workspace-excluded crates (e.g. wasm-edge): run from the crate dir.
 claim_test_indir(){
   local dir="$1" filt="$2" desc="$3"; shift 3
-  if ! command -v cargo >/dev/null 2>&1; then SKIP "$desc (cargo missing)"; return; fi
+  if ! command -v cargo >/dev/null 2>&1; then SKIP "$desc (cargo未安装)"; return; fi
   if ( cd "$dir" && cargo test "$@" "$filt" ) > /tmp/prove_claim.log 2>&1 \
      && grep -qE "test result: ok\. [1-9]" /tmp/prove_claim.log; then
-    PASS "$desc"
+    PASS "$desc 通过"
   else
     if grep -qE "0 passed|error: no test target" /tmp/prove_claim.log \
        && ! grep -q "test result: FAILED" /tmp/prove_claim.log; then
-      SKIP "$desc (test gated/absent — see /tmp/prove_claim.log)"
+      SKIP "$desc (test gated/absent — 查看 /tmp/prove_claim.log)"
     else
-      FAIL "$desc — see /tmp/prove_claim.log"
+      FAIL "$desc 失败 — 查看 /tmp/prove_claim.log"
     fi
   fi
 }
 
-echo "[3] Anti-slop assertion tests (each fails on the pre-fix code)"
+echo "[3] 门控索赔测试"
 echo "  ADR-156 §2.2 — fusion crafted-input DoS panics are closed:"
 claim_test wifi-densepose-ruvector triangulation_out_of_range_index_returns_none_no_panic \
   "crafted out-of-range index returns None, no panic" --no-default-features
@@ -137,11 +146,11 @@ fi
 hr
 
 # ── verdict ──────────────────────────────────────────────────────────────────
-echo "VERDICT:  $pass verified · $fail failed · $skip claimed-not-reproduced-here"
+echo "VERDICT:  $pass 个 通过 · $fail 个 失败 · $skip 个 未测试"  
 if [ "$fail" -eq 0 ]; then
-  echo "RESULT: PASS — every reproducible claim verified on this machine."
+  echo "RESULT: PASS — 所有索赔都成功复制."
   exit 0
 else
-  echo "RESULT: FAIL — $fail claim(s) did not reproduce. See the /tmp/prove_*.log files."
+  echo "RESULT: FAIL — $fail 个 未成功复制."
   exit 1
 fi

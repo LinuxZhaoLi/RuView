@@ -1,9 +1,8 @@
 /**
  * @file main.c
- * @brief ESP32 Hello World — Full Capability Discovery
+ * @brief ESP32 你好，世界-全能力发现
  *
- * Boots up, prints "Hello World!", then probes chip info, flash, PSRAM,
- * WiFi (including CSI where enabled), 802.15.4/BLE on C6, GPIOs,
+ * 打印"你好，世界！"，然后探查芯片信息、Flash、PSRAM、WiFi（包括CSI）、802.15.4/BLE on C6, GPIOs,
  * peripherals, FreeRTOS stats, and power management.  No WiFi connection
  * required.  Supports ESP32-S3 and ESP32-C6 (set IDF target accordingly).
  */
@@ -33,8 +32,8 @@
 #include "sdkconfig.h"
 
 /*
- * Peripheral counts: ESP-IDF v6+ dropped some SOC_* macros; values below
- * match each target's HAL (esp_hal_* *_ll.h) where applicable.
+ * 外设数量: ESP-IDF v6+ dropped some SOC_* macros; values below
+ * 匹配每个目标的HAL（esp_hal_* *_ll.h），如果适用。
  */
 #if CONFIG_IDF_TARGET_ESP32S3
 #define PROBE_I2S_CTRL_NUM   2
@@ -48,7 +47,7 @@
 #define PROBE_MCPWM_GROUPS   1
 #define PROBE_PCNT_UNITS     4
 #else
-#error "hello-world: add PROBE_* peripheral counts for this IDF target in main.c"
+#error "hello-world: add 添加 PROBE_* 定义，用于当前 IDF 目标的外设数量，然后在 main.c 中包含此文件"
 #endif
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -66,7 +65,7 @@ static const char *chip_model_str(esp_chip_model_t model)
         default:           return "Unknown";
     }
 }
-
+// 打印分隔线
 static void print_separator(const char *title)
 {
     printf("\n╔══════════════════════════════════════════════════════════╗\n");
@@ -74,11 +73,11 @@ static void print_separator(const char *title)
     printf("╚══════════════════════════════════════════════════════════╝\n");
 }
 
-/* ── Capability Probes ───────────────────────────────────────────────── */
+/* ── 能力探查 ─────────────────────────────────────────────────── */
 
 static void probe_chip_info(void)
 {
-    print_separator("CHIP INFO");
+    print_separator("芯片信息探查");
 
     esp_chip_info_t info;
     esp_chip_info(&info);
@@ -110,10 +109,10 @@ static void probe_chip_info(void)
     printf("  IDF Version:    %s\n", esp_get_idf_version());
     printf("  Reset Reason:   %d\n", esp_reset_reason());
 }
-
+// 内存信息探查
 static void probe_memory(void)
 {
-    print_separator("MEMORY");
+    print_separator("内存信息探查");
 
     /* Internal RAM */
     printf("  Internal DRAM:\n");
@@ -140,10 +139,10 @@ static void probe_memory(void)
     printf("  DMA-capable:    %"PRIu32" bytes free\n",
            (uint32_t)heap_caps_get_free_size(MALLOC_CAP_DMA));
 }
-
+// FLASH 存储信息探查
 static void probe_flash(void)
 {
-    print_separator("FLASH STORAGE");
+    print_separator("FLASH存储信息探查");
 
     uint32_t flash_size = 0;
     if (esp_flash_get_size(NULL, &flash_size) == ESP_OK) {
@@ -152,7 +151,7 @@ static void probe_flash(void)
     }
 
     /* Partition table */
-    printf("  Partitions:\n");
+    printf("  Partition Table:\n");
     esp_partition_iterator_t it = esp_partition_find(ESP_PARTITION_TYPE_ANY,
                                                      ESP_PARTITION_SUBTYPE_ANY, NULL);
     while (it != NULL) {
@@ -163,16 +162,16 @@ static void probe_flash(void)
     }
     esp_partition_iterator_release(it);
 
-    /* Running partition */
+    /* 运行中的分区 */
     const esp_partition_t *running = esp_ota_get_running_partition();
     if (running) {
         printf("  Running from:   %s (0x%06"PRIx32")\n", running->label, running->address);
     }
 }
-
+// WiFi 能力探查
 static void probe_wifi_capabilities(void)
 {
-    print_separator("WiFi CAPABILITIES");
+    print_separator("WiFi能力探查");
 
     /* Init WiFi just enough to query capabilities (no connection) */
     ESP_ERROR_CHECK(esp_netif_init());
@@ -193,17 +192,16 @@ static void probe_wifi_capabilities(void)
 
     /* CSI (Channel State Information) */
 #ifdef CONFIG_ESP_WIFI_CSI_ENABLED
-    printf("  CSI:            ENABLED (Channel State Information)\n");
-    printf("    - Subcarrier amplitude & phase data\n");
-    printf("    - Per-packet callback available\n");
-    printf("    - Use for: presence detection, gesture recognition,\n");
-    printf("      breathing/heart rate, indoor positioning\n");
+    printf("  CSI:            ENABLED (信道状态信息)\n");
+    printf("    - S副载波振幅和相位数据\n");
+    printf("    - 每包回调可用\n");
+    printf("    - 用于： 人员检测、手势识别、呼吸率、室内定位\n");
 #else
     printf("  CSI:            DISABLED (enable CONFIG_ESP_WIFI_CSI_ENABLED)\n");
 #endif
 
-    /* Scan to show what's visible */
-    printf("  WiFi Scan:      Scanning nearby APs...\n");
+    /* 扫描显示可见的内容 */
+    printf("  WiFi Scan:      扫描附近 APs...\n");
     wifi_scan_config_t scan_cfg = {
         .show_hidden = true,
         .scan_type = WIFI_SCAN_TYPE_ACTIVE,
@@ -214,14 +212,14 @@ static void probe_wifi_capabilities(void)
 
     uint16_t ap_count = 0;
     esp_wifi_scan_get_ap_num(&ap_count);
-    printf("  APs Found:      %d\n", ap_count);
+    printf("  找到的 APs:      %d\n", ap_count);
 
     if (ap_count > 0) {
         uint16_t max_show = (ap_count > 10) ? 10 : ap_count;
         wifi_ap_record_t *ap_list = malloc(sizeof(wifi_ap_record_t) * max_show);
         if (ap_list) {
             esp_wifi_scan_get_ap_records(&max_show, ap_list);
-            printf("  %-32s  CH  RSSI  Auth\n", "  SSID");
+            printf("  %-32s  信道  RSSI  认证\n", "  SSID");
             printf("  %-32s  --  ----  ----\n", "  ----");
             for (int i = 0; i < max_show; i++) {
                 const char *auth_str = "OPEN";
@@ -246,14 +244,14 @@ static void probe_wifi_capabilities(void)
         }
     }
 
-    /* WiFi modes supported */
-    printf("\n  Supported Modes:\n");
-    printf("    - STA  (Station / Client)\n");
-    printf("    - AP   (Access Point / Soft-AP)\n");
-    printf("    - STA+AP (Concurrent)\n");
-    printf("    - Promiscuous (raw 802.11 frame capture)\n");
-    printf("    - ESP-NOW (peer-to-peer, no router needed)\n");
-    printf("    - WiFi Aware / NAN (Neighbor Awareness)\n");
+    /* 支持WiFi模式 */
+    printf("\n  支持的WiFi模式:\n");
+    printf("    - STA  (客户端 / 客户端)\n");
+    printf("    - AP   (接入点 / 软-AP)\n");
+    printf("    - STA+AP (并发)\n");
+    printf("    - 杂模式 (原始802.11 frame capture)\n");
+    printf("    - ESP-NOW (点对点，无需路由)\n");
+    printf("    - WiFi Aware / NAN (邻居感知)\n");
 
     esp_wifi_stop();
     esp_wifi_deinit();
@@ -261,20 +259,20 @@ static void probe_wifi_capabilities(void)
 
 static void probe_bluetooth(void)
 {
-    print_separator("BLUETOOTH CAPABILITIES");
+    print_separator("蓝牙能力探查");
 
     esp_chip_info_t info;
     esp_chip_info(&info);
 
     if (info.features & CHIP_FEATURE_BLE) {
-        printf("  BLE:            Supported (Bluetooth LE)\n");
-        printf("    - GATT Server/Client\n");
-        printf("    - Advertising & Scanning\n");
-        printf("    - Mesh Networking\n");
-        printf("    - Long Range (Coded PHY)\n");
+        printf("  BLE:            支持 (蓝牙 LE)\n");
+        printf("    - GATT 服务器/客户端\n");
+        printf("    - 广播与扫描\n");
+        printf("    - 网格网络\n");
+        printf("    - 长距离 (编码 PHY)\n");
         printf("    - 2 Mbps PHY\n");
     } else {
-        printf("  BLE:            Not supported on this chip\n");
+        printf("  BLE:            不支持此芯片\n");
     }
 
 #if CONFIG_IDF_TARGET_ESP32C6
@@ -284,16 +282,16 @@ static void probe_bluetooth(void)
 #endif
 
     if (info.features & CHIP_FEATURE_BT) {
-        printf("  BT Classic:     Supported (A2DP, SPP, HFP)\n");
+        printf("  BT Classic:     支持 (A2DP, SPP, HFP)\n");
     } else {
-        printf("  BT Classic:     Not available (BLE-only on this chip)\n");
+        printf("  BT Classic:     不支持此芯片\n");
     }
 }
 
 static void probe_peripherals(void)
 {
-    print_separator("PERIPHERAL CAPABILITIES");
-
+    print_separator("外设能力探查");
+    
     printf("  GPIOs:          %d total\n", SOC_GPIO_PIN_COUNT);
     printf("  ADC:\n");
 #if CONFIG_IDF_TARGET_ESP32C6
@@ -303,11 +301,11 @@ static void probe_peripherals(void)
     printf("    - ADC1:       %d channels (12-bit SAR)\n", SOC_ADC_CHANNEL_NUM(0));
     printf("    - ADC2:       %d channels (shared with WiFi)\n", SOC_ADC_CHANNEL_NUM(1));
 #endif
-    printf("  DAC:            Not available on this chip\n");
+    printf("  DAC:            不支持此芯片\n");
 #if CONFIG_IDF_TARGET_ESP32S3
     printf("  Touch Sensors:  %d channels (capacitive)\n", PROBE_TOUCH_CHAN_NUM);
 #elif CONFIG_IDF_TARGET_ESP32C6
-    printf("  Touch Sensors:  Not available (no capacitive touch on ESP32-C6)\n");
+    printf("  Touch Sensors:  不支持此芯片\n");
 #endif
     printf("  SPI:            %d controllers\n", SOC_SPI_PERIPH_NUM);
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -348,21 +346,21 @@ static void probe_security(void)
 {
     print_separator("SECURITY & CRYPTO");
 
-    printf("  AES:            128/256-bit hardware accelerator\n");
-    printf("  SHA:            SHA-1/224/256 hardware accelerator\n");
-    printf("  RSA:            Up to 4096-bit hardware accelerator\n");
-    printf("  HMAC:           Hardware HMAC (eFuse key)\n");
-    printf("  Digital Sig:    Hardware digital signature (RSA)\n");
+    printf("  AES:            128/256位硬件加速器支持\n");
+    printf("  SHA:            SHA-1/224/256位硬件加速器支持\n");
+    printf("  RSA:            4096位硬件加速器支持\n");
+    printf("  HMAC:           支持\n");
+    printf("  Digital Sig:    支持\n");
     printf("  Flash Encrypt:  AES-256-XTS (eFuse controlled)\n");
     printf("  Secure Boot:    V2 (RSA-3072 / ECDSA)\n");
     printf("  eFuse:          %d bits (MAC, keys, config)\n", 256 * 11);
-    printf("  World Ctrl:     Dual-world isolation (TEE)\n");
-    printf("  Random:         Hardware TRNG available\n");
+    printf("  World Ctrl:     双世界隔离支持 (TEE)\n");
+    printf("  Random:         支持\n");
 }
 
 static void probe_power(void)
 {
-    print_separator("POWER MANAGEMENT");
+    print_separator("电源管理探查");
 
 #if CONFIG_IDF_TARGET_ESP32C6
     printf("  Clock Modes:\n");
@@ -388,10 +386,10 @@ static void probe_power(void)
     printf("  ULP Coprocessor: FSM (runs in deep sleep)\n");
 #endif
 }
-
+// 温度传感器探查
 static void probe_temperature(void)
 {
-    print_separator("TEMPERATURE SENSOR");
+    print_separator("温度传感器探查");
 
     temperature_sensor_handle_t tsens = NULL;
     temperature_sensor_config_t tsens_cfg = TEMPERATURE_SENSOR_CONFIG_DEFAULT(-10, 80);
@@ -405,13 +403,13 @@ static void probe_temperature(void)
         temperature_sensor_disable(tsens);
         temperature_sensor_uninstall(tsens);
     } else {
-        printf("  Chip Temp:      Sensor not available (%s)\n", esp_err_to_name(ret));
+        printf("  Chip Temp:      未安装 (%s)\n", esp_err_to_name(ret));
     }
 }
-
+// FreeRTOS 系统探查
 static void probe_freertos(void)
 {
-    print_separator("FreeRTOS / SYSTEM");
+    print_separator("FreeRTOS 系统探查");
 
     printf("  FreeRTOS:       v%s\n", tskKERNEL_VERSION_NUMBER);
     printf("  Tick Rate:      %d Hz\n", configTICK_RATE_HZ);
@@ -419,14 +417,14 @@ static void probe_freertos(void)
     printf("  Main Stack:     %d bytes\n", CONFIG_ESP_MAIN_TASK_STACK_SIZE);
     printf("  Uptime:         %lld ms\n", esp_timer_get_time() / 1000LL);
 }
-
+// CSI 详情探查
 static void probe_csi_details(void)
 {
-    print_separator("CSI (Channel State Information) DETAILS");
+    print_separator("CSI (通道状态信息) 详情探查");
 
 #ifdef CONFIG_ESP_WIFI_CSI_ENABLED
-    printf("  Status:         ENABLED in this build\n");
-    printf("\n  What is CSI?\n");
+    printf("  Status:         ENABLED\n");
+    printf("\n  什么是 CSI？\n");
     printf("    WiFi CSI captures the amplitude and phase of each OFDM\n");
     printf("    subcarrier in received WiFi frames. This gives a detailed\n");
     printf("    view of how radio signals propagate through a space.\n");
@@ -471,37 +469,37 @@ void app_main(void)
     printf("\n");
     printf("  ╭─────────────────────────────────────────────────╮\n");
     printf("  │                                                 │\n");
-    printf("  │       HELLO WORLD from %-24s       │\n", chip_model_str(chip.model));
+    printf("  │       你好 from %-24s       │\n", chip_model_str(chip.model));
     printf("  │                                                 │\n");
-    printf("  │   WiFi-DensePose Capability Discovery v1.0      │\n");
+    printf("  │   WiFi-DensePose 能力发现 v1.0      │\n");
     printf("  │                                                 │\n");
     printf("  ╰─────────────────────────────────────────────────╯\n");
     printf("\n");
 
     /* Run all probes */
-    probe_chip_info();
-    probe_memory();
-    probe_flash();
-    probe_temperature();
-    probe_peripherals();
-    probe_security();
-    probe_power();
-    probe_freertos();
-    probe_wifi_capabilities();
-    probe_bluetooth();
-    probe_csi_details();
+    probe_chip_info();  // 探查芯片信息
+    probe_memory();     // 探查内存
+    probe_flash();  // 探查闪存
+    probe_temperature();  // 探查温度
+    probe_peripherals();  // 探查外设
+    probe_security();   // 探查安全
+    probe_power();      // 探查电源
+    probe_freertos();  // 探查 FreeRTOS 系统
+    probe_wifi_capabilities();  // 探查 WiFi 能力
+    probe_bluetooth();  // 探查蓝牙
+    probe_csi_details();  // 探查 CSI 详情
 
     print_separator("DONE — ALL CAPABILITIES REPORTED");
-    printf("\n  This %s is ready for WiFi-DensePose experiments.\n",
+    printf("\n  这个 %s 已准备好 WiFi-DensePose 实验。\n",
            chip_model_str(chip.model));
-    printf("  For production CSI on S3, flash esp32-csi-node; C6 path may differ.\n\n");
+    printf("  为了生产 CSI，请烧录 esp32-csi-node；路径 C6 路能不同。\n\n");
 
-    /* Keep alive — blink a status message every 10 seconds */
+    /* Keep alive — 10 秒 更新一次状态消息 */
     int tick = 0;
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
         tick++;
-        printf("[hello] Still running... uptime=%lld sec, free_heap=%"PRIu32"\n",
+        printf("[hello] 仍在运行中... uptime=%lld 秒, 内存可用=%"PRIu32"\n",
                esp_timer_get_time() / 1000000LL,
                (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
     }

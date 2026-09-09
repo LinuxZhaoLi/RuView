@@ -1,142 +1,125 @@
+# 工作区配置文件，用于定义Rust项目工作区以及所有依赖项
 [workspace]
+# 使用Cargo新版解析器v2，更好解决依赖包版本冲突问题
 resolver = "2"
+# 定义工作区成员，也就是本项目包含的所有Rust子包(crate)
 members = [
-    "crates/wifi-densepose-core",
-    "crates/wifi-densepose-physics", # ADR-323 bounded pose assessment/correction
+    "crates/wifi-densepose-core", # 核心子包，提供基础数据结构与底层基础功能
+    "crates/wifi-densepose-physics", # ADR-323 边界姿态评估/校正，物理建模与评估模块
     "crates/wifi-densepose-signal",
     "crates/wifi-densepose-nn",
-    # wifi-densepose-api / -db / -config: removed in #578.
-    # The crate names were reserved early for an envisioned REST/database/config
-    # split, but no implementation followed and no code referenced them. The
-    # functionality they would provide is covered today by:
-    #   - REST/WS: `wifi-densepose-sensing-server` (Axum)
-    #   - Config:  per-crate config + CLI args in `wifi-densepose-sensing-server`
-    #             and `wifi-densepose-desktop`
-    #   - DB:      no persistent state; system is real-time
-    # If we ever need any of these as a published surface, they can be
-    # reintroduced with a real implementation.
+    # wifi-densepose-api / -db / -config: 在 #578 版本中移除。
+    # 早期预留了REST接口、数据库、配置文件相关子包命名，但并未落地实现，无代码引用。
+    # 对应的功能现在由下面模块实现：
+    #   - REST/WS接口：`wifi-densepose-sensing-server` (Axum web框架实现)
+    #   - 配置：各子包独立配置 + sensing-server与桌面程序内的命令行参数
+    #   - 数据库：无持久化存储，系统为实时流式处理
+    # 如果后续需要对外发布接口，可以重新实现并加入
     "crates/wifi-densepose-hardware",
     "crates/wifi-densepose-wasm",
     "crates/wifi-densepose-cli",
     "crates/wifi-densepose-mat",
     "crates/wifi-densepose-train",
-    "crates/wifi-densepose-sensing-server",
-    "crates/wifi-densepose-aether",    # ADR-185 §13 — AETHER pure-compute leaf (std-only)
-    "crates/wifi-densepose-privshield", # ADR-291 — VEIL privacy shield (compliant-waveform anti-sensing; std-only leaf)
+    "crates/wifi-densepose-sensing-server", # 你编译的目标：感知服务端（RuView后端主程序）
+    "crates/wifi-densepose-aether",   # ADR-185 §13 — AETHER纯计算模块（仅标准库，无底层硬件依赖）
+    "crates/wifi-densepose-privshield", # ADR-291 — VEIL隐私防护模块；合规波形反探测（仅标准库）
     "crates/wifi-densepose-wifiscan",
-    "crates/wifi-densepose-vitals",
+    "crates/wifi-densepose-vitals", # 生命体征估算模块（呼吸、心率趋势计算，实验模块）
     "crates/wifi-densepose-ruvector",
-    "crates/wifi-densepose-desktop",
-    "crates/wifi-densepose-pointcloud",
-    # geo + worldgraph extracted to ruvnet/worldgraph submodule (see crates/worldgraph)
-    "crates/wifi-densepose-engine",      # ADR-135..146 integration/composition layer
-    "crates/wifi-densepose-calibration", # ADR-151 — per-room calibration & specialist training
-    # ADR-271 — Cognitum OAuth access-token verification. RuView as an OAuth
-    # RESOURCE SERVER: offline ES256/JWKS verification of tokens issued by
-    # auth.cognitum.one, so a user signs in to their own sensing server with
-    # their Cognitum identity instead of a shared static bearer. No login flow
-    # and no outbound Cognitum API calls live here — verification only.
+    "crates/wifi-densepose-desktop", # 桌面客户端程序
+    "crates/wifi-densepose-pointcloud", # 点云处理模块
+    # 地理与世界图模块已抽离为子模块 ruvnet/worldgraph (见 crates/worldgraph)
+    "crates/wifi-densepose-engine",     # ADR-135..146 整体集成与编排层，感知引擎核心
+    "crates/wifi-densepose-calibration", # ADR-151 — 房间独立基线校准、专项训练模块
+    # ADR-271 — Cognitum OAuth令牌校验。RuView作为OAuth资源服务端：
+    # 离线校验ES256/JWKS签名令牌，用户使用Cognitum身份登录感知服务，不用静态固定token。
+    # 本模块只做签名校验，不会向外请求Cognitum接口，没有登录交互流程。
     "crates/ruview-auth",
-    "crates/ruview-cognitum-spaces", # ADR-325 Cognitum Spaces read client
+    "crates/ruview-cognitum-spaces", # ADR-325 Cognitum空间信息只读客户端
     "crates/nvsim",
     "crates/nvsim-server",
-    "crates/homecore",                 # ADR-127 — HOMECORE state machine
-    "crates/homecore-plugins",         # ADR-128 — HOMECORE-PLUGINS WASM runtime (P1 scaffold)
-    "crates/homecore-api",             # ADR-130 — HOMECORE REST + WS API
-    "crates/homecore-automation",         # ADR-129 — HOMECORE automation engine
-    "crates/homecore-recorder",        # ADR-132 — HOMECORE state recorder
-    "crates/homecore-migrate",         # ADR-134 — HOMECORE migration from Python HA
-    # ADR-100/ADR-101: Cognitum Cog packaging — first Cog from this repo.
-    # Ships the wifi-densepose pose-estimation model as a signed binary +
-    # JSONL manifest installable by the Cognitum V0 appliance (cognitum-v0,
-    # cognitum-cluster-*, ruvultra). The companion appliance-side crate
-    # lives in cognitum-one/v0-appliance as `cognitum-pose-estimation`.
+    "crates/homecore",                   # ADR-127 — HOMECORE 状态机（智能家居核心状态管理）
+    "crates/homecore-plugins",           # ADR-128 — HOMECORE插件WASM运行时（P1脚手架）
+    "crates/homecore-api",               # ADR-130 — HOMECORE REST + WebSocket API接口
+    "crates/homecore-automation",        # ADR-129 — HOMECORE自动化引擎，智能家居联动逻辑
+    "crates/homecore-recorder",          # ADR-132 — HOMECORE状态记录器
+    "crates/homecore-migrate",           # ADR-134 — 从Python版HA迁移旧数据的迁移工具
+    # ADR-100/ADR-101: Cognitum Cog打包 — 项目第一个Cog包。
+    # 将WiFi人体姿态模型打包为签名二进制+JSON清单，可被Cognitum V0设备安装。
+    # 设备端配套crate在 cognitum-one/v0-appliance 项目内，名为`cognitum-pose-estimation`
     "crates/cog-pose-estimation",
-    # ADR-103: Learned multi-person counter (SOTA path) — replaces the
-    # PR #491 slot heuristic with a Candle network + Stoer-Wagner fusion.
-    # Motivated by #499 ghost-skeleton reports.
+    # ADR-103: 多人计数模型（SOTA方案） — 使用Candle神经网络+Stoer-Wagner融合算法，替代旧的启发式计数方案
+    # 用于解决幽灵骨架误识别问题（#499 issue）
     "crates/cog-person-count",
-    # ADR-116: Home Assistant + Matter Cognitum Seed cog. Wraps the
-    # ADR-115 MQTT publisher as a Seed-installable artifact with
-    # mDNS, embedded broker, RuVector thresholds, Ed25519 witness.
+    # ADR-116: HomeAssistant + Matter Cognitum Seed插件。对ADR-115 MQTT发布器封装，
+    # 内置mDNS、嵌入式消息代理、RuVector阈值、Ed25519验签。
     "crates/cog-ha-matter",
-    # ADR-118: BFLD — Beamforming Feedback Layer for Detection. The
-    # privacy/safety layer that measures and gates identity leakage from
-    # WiFi BFI captures. Sub-ADRs: 119 (frame), 120 (privacy class),
-    # 121 (identity risk), 122 (HA/Matter), 123 (capture path).
+    # ADR-118: BFLD — 波束反馈检测层。隐私安全层，用于检测和限制WiFi BFI数据造成的身份信息泄露
+    # 包含子规范：帧定义、隐私等级、HA/Matter联动、采集控制
     "crates/wifi-densepose-bfld",
-    # ADR-147: OccWorld thin-client bridge — WorldGraph PersonTrack history →
-    # OccWorld Python subprocess → TrajectoryPrior injection into pose tracker.
-    # worldmodel extracted to ruvnet/worldgraph submodule (consumed via path dep)
-    # ADR-147 (Phase 5): OccWorld TransVQVAE ported to Candle — native Rust
-    # inference without Python/IPC overhead. Loaded alongside the Python bridge
-    # as a faster alternative once Phase-5 weights are available.
+    # ADR-147: OccWorld瘦客户端桥 — WorldGraph人体轨迹历史 → OccWorld Python子进程 → 轨迹先验注入姿态跟踪器。
+    # worldmodel抽离为子模块 ruvnet/worldgraph，通过子模块引入
+    # ADR-147 (第五阶段): OccWorld TransVQVAE迁移到Candle框架，原生Rust推理，消除Python跨进程开销。
+    # 权重文件就绪后，作为Python桥接方案的高性能替代。
     "crates/wifi-densepose-occworld-candle",
-    # rvCSI — edge RF sensing runtime (ADR-095 platform, ADR-096 FFI/crate layout):
-    # lives in its own repo (https://github.com/ruvnet/rvcsi), vendored here as
-    # `vendor/rvcsi` and published to crates.io as `rvcsi-*` 0.3.x. Depend on the
-    # published crates (or the submodule's `crates/rvcsi-*` paths) — not as v2
-    # workspace members, since `vendor/rvcsi/Cargo.toml` is its own workspace.
-    "crates/homecore-hap",         # ADR-125 — Apple Home HomeKit Accessory Protocol bridge
-    "crates/homecore-assist",      # ADR-133 — HOMECORE voice assistant + ruflo bridge
-    "crates/homecore-server",      # iter-9 — HOMECORE integration binary (all 8 crates wired together)
-    "crates/ruview-swarm",                         # ADR-148 — drone swarm control system
-    # ADR-273..277 — unified RF spatial world model: canonical RF tensor +
-    # hardware adapters, universal foundation encoder (masked-reconstruction
-    # pretraining, ≤1% task adapters), RF-aware Gaussian spatial memory,
-    # physics-guided synthetic RF worlds, edge sensing control plane.
+    # rvCSI — 射频感知边缘运行时(ADR-095平台, ADR-096 FFI/包结构):
+    # 独立仓库：https://github.com/ruvnet/rvcsi，在本项目vendor目录作为子模块引入
+    # 对外发布为crates.io上 `rvcsi-*` 0.3.x系列包。优先使用发布包（或子模块内路径），
+    # 不加入工作区成员，因为vendor/rvcsi/Cargo.toml本身是独立工作区。
+    "crates/homecore-hap",           # ADR-125 — Apple Home HomeKit接入协议桥接模块
+    "crates/homecore-assist",        # ADR-133 — HOMECORE语音助手与ruflo桥接
+    "crates/homecore-server",        # iter-9 — HOMECORE集成服务，整合全部8个子包
+    "crates/ruview-swarm",                     # ADR-148 — 设备集群控制
+    # ADR-273..277 — 统一射频空间世界模型：标准RF张量、硬件适配层、通用基础编码器、
+    # 高斯空间记忆、物理合成RF环境、边缘感知控制平面。
     "crates/ruview-unified",
-    # ADR-262 P1 — anti-corruption bridge converting RuView WiFi-CSI sensing
-    # output into signed RuField FieldEvents. Path-deps the `vendor/rufield`
-    # submodule crates (rufield-core/-provenance/-privacy/-fusion); single
-    # coupling point between RuView and the standalone RuField MFS spec.
+    # ADR-262 P1 — 防篡改桥，将RuView WiFi-CSI感知输出转换为带签名RuField事件。
+    # 依赖vendor/rufield子模块包(rufield-core/-provenance/-privacy/-fusion)；
+    # RuView和独立RuField MFS规范唯一耦合点。
     "crates/wifi-densepose-rufield",
-    # ADR-287 — coherent wideband RF tomography research crate: synthetic
-    # stepped-frequency multi-position measurement simulation + delay-and-sum
-    # backprojection reconstruction. Standalone leaf (nvsim pattern), zero
-    # hardware coupling, every number SYNTHETIC/L0 until real wideband RF
-    # hardware exists.
+    # ADR-287 — 宽带RF层析成像研究包：合成步进频多点测量仿真 + 后向投影重建。
+    # 独立模块，不绑定硬件，所有数值均为纯仿真，无真实射频硬件参与。
     "crates/wifi-densepose-sar",
-    # ADR-300 phase 1 — perception substrate spine (new first-party crates):
-    "crates/ruview-ontology",   # ADR-306 canonical spatial ontology (Site..Event)
-    "crates/ruview-attest",     # ADR-305 authenticated sensor identity / RF chain of custody
-    "crates/ruview-evidence",   # ADR-304 evidence engine (per-room/device/subject ledger)
-    # ADR-300 phase 1 — dependent wave (build on the spine roots above):
-    "crates/ruview-ood",        # ADR-302 OOD KNOWN/DEGRADED/UNKNOWN gating
-    "crates/ruview-witness",    # ADR-319 witness chain (staged signed provenance)
-    "crates/ruview-certify",    # ADR-318 capability certificate
-    "crates/ruview-scorecard",  # ADR-317 multi-domain benchmark scorecard
-    "crates/ruview-policy",     # ADR-321 decision policy / action authorization
-    # ADR-300 phase 2 — unified world-model core:
-    "crates/ruview-hal",        # ADR-320 sensor HAL (any modality -> Observation)
-    "crates/ruview-groundtruth",# ADR-303 ground-truth synchronization / validation plane
-    "crates/ruview-track",      # ADR-307 persistent privacy-preserving tracking
-    "crates/ruview-fusion",     # ADR-311 uncertainty-aware fusion -> one world state
-    # ADR-300 phase 3 — higher-ceiling primitives (on the fused world state):
-    "crates/ruview-twin",          # ADR-315 digital RF twin (per-deployment model)
-    "crates/ruview-placement",     # ADR-308 sensor placement optimizer
-    "crates/ruview-memory",        # ADR-312 long-term spatial memory / anomaly
-    "crates/ruview-spatial-memory",# ADR-326 tenant-scoped Cognitum Spaces history
-    "crates/ruview-counterfactual",# ADR-313 counterfactual spatial inference
-    "crates/ruview-infogain",      # ADR-314 information-gain scheduler
-    "crates/ruview-active",        # ADR-309 active sensing control
-    # ADR-324 — clean-room Kooima off-axis (head-coupled perspective) projection.
-    # Dependency-free native core; wasm-bindgen surface only on wasm32.
+    # ADR-300 phase 1 — 感知底层基础骨架（新增第一方子包）：
+    "crates/ruview-ontology",    # ADR-306 标准空间本体（场地、事件定义）
+    "crates/ruview-attest",      # ADR-305 传感器可信身份 / 射频链路存证
+    "crates/ruview-evidence",    # ADR-304 证据引擎（房间/设备/对象审计账本）
+    # ADR-300 phase 1 — 依赖波模块（基于上面基础骨架）：
+    "crates/ruview-ood",         # ADR-302 分布外识别（已知/退化/未知状态判定）
+    "crates/ruview-witness",     # ADR-319 证据链（分段签名溯源）
+    "crates/ruview-certify",     # ADR-318 能力证书管理
+    "crates/ruview-scorecard",   # ADR-317 多维度基准评估面板
+    "crates/ruview-policy",      # ADR-321 决策策略 / 动作授权控制
+    # ADR-300 phase 2 — 统一世界模型核心：
+    "crates/ruview-hal",         # ADR-320 传感器硬件抽象层：各类传感器观测数据统一入口
+    "crates/ruview-groundtruth", # ADR-303 真值同步/校验层
+    "crates/ruview-track",       # ADR-307 隐私保护型持续人体跟踪
+    "crates/ruview-fusion",      # ADR-311 不确定性感知数据融合，输出统一世界状态
+    # ADR-300 phase 3 — 高层抽象能力（基于融合后的世界状态）：
+    "crates/ruview-twin",          # ADR-315 射频数字孪生（单设备部署模型）
+    "crates/ruview-placement",     # ADR-308 传感器位置自动优化器
+    "crates/ruview-memory",        # ADR-312 长期空间记忆 / 异常识别
+    "crates/ruview-spatial-memory",# ADR-326 租户隔离的Cognitum空间历史记录
+    "crates/ruview-counterfactual",# ADR-313 反事实空间推理
+    "crates/ruview-infogain",      # ADR-314 信息增益调度器
+    "crates/ruview-active",        # ADR-309 主动感知控制
+    # ADR-324 — Kooima离轴投影（头耦合透视）。无依赖原生核心；仅wasm32平台提供wasm-bindgen接口。
     "crates/ruview-offaxis",
 ]
-# ADR-040: WASM edge crate targets wasm32-unknown-unknown (no_std),
-# excluded from workspace to avoid breaking `cargo test --workspace`.
-# Build separately: cargo build -p wifi-densepose-wasm-edge --target wasm32-unknown-unknown --release
+# ADR-040: WASM边缘子包，目标平台wasm32-unknown-unknown(无std)
+# 不加入工作区，避免执行`cargo test --workspace`编译失败
+# 单独编译命令：cargo build -p wifi-densepose-wasm-edge --target wasm32-unknown-unknown --release
 #
-# ADR-128 P2: example WASM plugin — also wasm32-only (no_std, cdylib),
-# excluded for the same reason. Build separately:
+# ADR-128 P2: WASM插件示例，同样仅支持wasm32、无std、cdylib动态库类型
+# 不加入工作区原因同上
+#   编译命令：
 #   cargo build --target wasm32-unknown-unknown --release -p homecore-plugin-example
 exclude = [
     "crates/wifi-densepose-wasm-edge",
     "crates/homecore-plugin-example",
-    "crates/worldgraph",   # ruvnet/worldgraph submodule — its own workspace (geo/worldgraph/worldmodel)
+    "crates/worldgraph",   # ruvnet/worldgraph子模块，自身是独立工作区（geo/worldgraph/worldmodel）
 ]
-
+# 工作区全局包配置，所有子包继承此基础信息
 [workspace.package]
 version = "0.3.1"
 edition = "2021"
@@ -147,12 +130,12 @@ documentation = "https://docs.rs/wifi-densepose"
 keywords = ["wifi", "densepose", "csi", "pose-estimation", "rust"]
 categories = ["science", "computer-vision", "wasm"]
 
+# 工作区全局依赖，所有子包可以直接引用，不用重复写版本号
 [workspace.dependencies]
-# Core utilities
+# 基础工具库
 thiserror = "2.0"
-# WiFi Veil — compliant-waveform countermeasure against unauthorized WiFi
-# sensing (ADR-294). Dependency-free, deterministic, SYNTHETIC-only leaf;
-# pinned to an exact rev because the crate is consumed pre-crates.io-release.
+# WiFi Veil — 反非授权WiFi感知的合规波形防护模块（ADR-294）
+# 无依赖、确定性计算，仅用于纯合成仿真；锁定commit，因为还未正式发布到crates.io
 wifi-veil = { git = "https://github.com/ruvnet/wifi-veil", rev = "018468b5d2bf41f35c552910f35659830af0eb91" }
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -171,90 +154,74 @@ burn-ndarray = { version = "0.21", default-features = false, features = ["std"] 
 burn-train = { version = "0.21", default-features = false }
 burn-wgpu = { version = "0.21", default-features = false, features = ["std"] }
 burn-cuda = { version = "0.21", default-features = false, features = ["std"] }
-
-# Signal processing
+# 信号处理相关库
 ndarray = { version = "0.17", features = ["serde"] }
-ndarray-linalg = { version = "0.18", features = ["openblas-static"] }
+# ndarray-linalg：线性代数库，当前配置使用静态链接OpenBLAS（就是刚才报错openblas-src的来源）
+ndarray-linalg = { version = "0.18", features = ["openblas-system"] }
 rustfft = "6.1"
 num-complex = "0.4"
 num-traits = "0.2"
-
-# Neural network
+# 神经网络推理库
 tch = "0.24"
 ort = { version = "2.0.0-rc.11" }
 candle-core = "0.4"
 candle-nn = "0.4"
-
-# Web framework
+# Web服务框架（sensing-server网页和WebSocket接口）
 axum = { version = "0.7", features = ["ws", "macros"] }
 tower = { version = "0.4", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
 hyper = { version = "1.1", features = ["full"] }
-
-# Database
+# 数据库
 sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "sqlite", "uuid", "chrono", "json"] }
 redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
-
-# Configuration
+# 配置文件解析
 config = "0.14"
 dotenvy = "0.15"
 envy = "0.4"
-
-# WASM
+# WASM网页前端相关
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["console", "Window", "WebSocket"] }
 getrandom = { version = "0.2", features = ["js"] }
-
-# Hardware
+# 硬件串口、抓包
 serialport = "4.3"
 pcap = "1.1"
-
-# Graph algorithms (for min-cut assignment in metrics)
+# 图算法，用于指标最小割分配
 petgraph = "0.6"
-
-# Data loading
+# 数据加载
 ndarray-npy = "0.10"
 walkdir = "2.4"
-
-# Hashing (for proof)
+# 哈希、校验
 sha2 = "0.10"
-
-# CSV logging
+# CSV日志输出
 csv = "1.3"
-
-# Progress bars
+# 进度条
 indicatif = "0.17"
-
-# CLI
+# 命令行参数解析
 clap = { version = "4.4", features = ["derive", "env"] }
-
-# rvCSI: napi-rs (Rust -> Node bindings) + napi-c (C-shim build glue)
+# rvCSI: napi-rs (Rust转Node绑定) + napi-c(C语言编译胶水层)
 napi = { version = "2.16", default-features = false, features = ["napi8"] }
 napi-derive = "2.16"
 napi-build = "2.1"
 cc = "1.0"
 libc = "0.2"
-
-# Testing
+# 单元测试
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.4"
 mockall = "0.12"
 wiremock = "0.5"
-
-# midstreamer integration (published on crates.io)
-# 0.1.0 was yanked; upgrade to latest 0.3/0.2 releases which pull in
-# quinn-proto >=0.11.14 (fixes RUSTSEC-2026-0037) and
-# rustls-webpki >=0.103.13 (fixes RUSTSEC-2026-0049/0098/0099/0104).
+# midstreamer 时序处理库，已经发布在crates.io
+# 0.1.0版本已下架；升级到0.3/0.2新版，修复安全漏洞：
+# quinn-proto >=0.11.14 修复RUSTSEC-2026-0037
+# rustls-webpki >=0.103.13 修复多个RUSTSEC安全漏洞
 midstreamer-quic = "0.3"
 midstreamer-scheduler = "0.2"
 midstreamer-temporal-compare = "0.2"
 midstreamer-attractor = "0.2"
-
-# ruvector integration (published on crates.io)
-# Vendored at origin/main (a083bd77f) in vendor/ruvector; using crates.io versions
-# until published. Bumps per ADR-152 §2.6 (2026-06-10 vendor sync survey).
+# ruvector向量计算库（已发布crates.io）
+# 源码在vendor/ruvector目录；这里直接使用crates.io版本
+# 2026-06-10同步vendor版本更新
 ruvector-core = "2.3.0"
 ruvector-mincut = "2.0.6"
 ruvector-attn-mincut = "2.0.4"
@@ -263,9 +230,7 @@ ruvector-solver = "2.0.6"
 ruvector-attention = "2.1.0"
 ruvector-crv = "0.1.1"
 ruvector-gnn = { version = "2.2.0", default-features = false }
-
-
-# Internal crates
+# 项目内部子包依赖，使用本地路径引用，不需要从网络下载
 wifi-densepose-core = { version = "0.3.0", path = "crates/wifi-densepose-core" }
 wifi-densepose-physics = { version = "0.1.0", path = "crates/wifi-densepose-physics" }
 wifi-densepose-signal = { version = "0.3.0", path = "crates/wifi-densepose-signal" }
@@ -279,18 +244,21 @@ wifi-densepose-mat = { version = "0.3.0", path = "crates/wifi-densepose-mat" }
 wifi-densepose-ruvector = { version = "0.3.0", path = "crates/wifi-densepose-ruvector" }
 wifi-densepose-worldmodel = { version = "0.3.0", path = "crates/worldgraph/wifi-densepose-worldmodel" }
 
+# Release正式发布编译配置（你打包sensing-server用的配置）
 [profile.release]
-lto = true
-codegen-units = 1
-panic = "abort"
-strip = true
-opt-level = 3
+lto = true # 开启链接时优化，大幅缩减程序体积，提升运行性能
+codegen-units = 1 # 单代码生成单元，最大化优化效果（编译速度变慢）
+panic = "abort" # 代码panic直接终止程序，去掉panic错误堆栈代码，精简体积
+strip = true # 编译后自动移除调试符号，减小二进制文件大小
+opt-level = 3 # 最高级别代码优化
 
+# release-with-debug：带调试信息的发布版本，用于定位运行时bug
 [profile.release-with-debug]
 inherits = "release"
 debug = true
 strip = false
 
+# benchmark性能评测编译配置，继承release优化，保留调试信息
 [profile.bench]
 inherits = "release"
 debug = true

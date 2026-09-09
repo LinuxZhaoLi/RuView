@@ -4,7 +4,7 @@
 [![Documentation](https://docs.rs/wifi-densepose-wasm/badge.svg)](https://docs.rs/wifi-densepose-wasm)
 [![License](https://img.shields.io/crates/l/wifi-densepose-wasm.svg)](LICENSE)
 
-WebAssembly bindings for running WiFi-DensePose directly in the browser.
+直接在浏览器中运行WiFi-DensePose的WebAssembly绑定。
 
 ## Overview
 
