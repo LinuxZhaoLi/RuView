@@ -12,7 +12,16 @@
 //! The curated events named in [`crate::semconv`] carry registry-backed
 //! event names and attribute keys (see `semconv/registry/` at the repo
 //! root); everything else exports under tracing's default event names.
-
+//! 跟踪启动器，可选地导出 OTLP 日志。
+//!
+//! 如果没有 `otel` 资源特征（默认情况），服务器始终使用的是
+//! `tracing_subscriber::fmt()` 的 stderr 配置。
+//! 启用该特征，并且仅当环境变量 `OTEL_EXPORTER_OTLP_ENDPOINT` 被设置时，[`init`] 还会额外安装一个 `opentelemetry-appender-tracing` 桥接器，
+//! 使得每个 `tracing` 事件都会通过 OTLP/gRPC 被导出为 OpenTelemetry 日志记录（`service.name = "ruview"`）到指定端点。
+//! 若未设置该端点，则不会构建 OTLP 管道，也不会生成任何经过整理的事件。
+//!
+//! 在 [`crate::semconv`] 中命名的事件使用注册表支持的事件名称和属性键（参见仓库根目录下的 `semconv/registry/`）；
+//! 其余所有内容均以 tracing 的默认事件名称导出。
 #[cfg(feature = "otel")]
 use std::sync::atomic::{AtomicBool, Ordering};
 

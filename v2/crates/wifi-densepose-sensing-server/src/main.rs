@@ -7,6 +7,16 @@
 //! - Serves the static UI files (port 8080)
 //!
 //! Replaces both ws_server.py and the Python HTTP server.
+//! WiFi密集感知服务器
+//!
+//! 轻量级 Axum 服务器，功能包括：
+//! - 通过 UDP（端口 5005）接收 ESP32 的 CSI 数据帧
+//! - 使用 RuVector 支持的 wifi-densepose-signal crate 处理信号
+//! - 通过 WebSocket（ws://localhost:8765/ws/sensing）广播感知更新
+//! - 提供静态 UI 文件（端口 8080）
+//!
+//! 用 ws_server.py 和 Python HTTP 服务器进行替换。
+
 #![allow(dead_code)]
 
 mod adaptive_classifier;
@@ -7780,23 +7790,31 @@ async fn main() {
     // OTEL_EXPORTER_OTLP_ENDPOINT set, logs also export over OTLP
     // (service.name = "ruview") — see telemetry.rs. The guard flushes
     // pending log records on exit.
+    // 初始化追踪；当启用了 `otel` 功能且设置了 OTEL_EXPORTER_OTLP_ENDPOINT 时，
+    // 日志也会通过 OTLP 导出（服务名称为 "ruview"）——参见 telemetry.rs。
+    // 该 guard 在退出时会刷新待处理的日志记录。
     let _telemetry = telemetry::init();
-
+    // 解析命令行参数
     let mut args = Args::parse();
     args.ui_path = coalesce_ui_path(args.ui_path);
-
+     
     // Handle --benchmark mode: run vital sign benchmark and exit
+    // 处理基准测试模式：运行 vital sign 检测基准测试并退出
+    // 若未设置该参数，则不会运行基准测试。
     if args.benchmark {
-        eprintln!("Running vital sign detection benchmark (1000 frames)...");
+        eprintln!("运行生命体征检测基准（1000帧）…");
         let (total, per_frame) = vital_signs::run_benchmark(1000);
         eprintln!();
-        eprintln!("Summary: {total:?} total, {per_frame:?} per frame");
+        eprintln!("摘要：共 {total:?} 总帧， {per_frame:?} 每帧");
         return;
     }
 
     // Handle --convert-model: turn a published HF model file (safetensors /
     // model.rvf.jsonl) into the RVF binary container --model expects, then exit
     // (issue #894). Gives the reporter a one-command path off the heuristics.
+    // 处理转换模型参数：将发布后的 HF 模型文件（safetensors 或 model.rvf.jsonl）转换为 RVF 二进制容器 --model 期望的格式，然后退出
+    // 若未设置该参数，则不会转换模型。
+    // 若转换成功，会输出转换后的模型文件路径。
     if let Some(ref in_path) = args.convert_model {
         let out_path = args
             .convert_out

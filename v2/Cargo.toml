@@ -17,6 +17,7 @@ members = [
     # 如果后续需要对外发布接口，可以重新实现并加入
     "crates/wifi-densepose-hardware",
     "crates/wifi-densepose-wasm",
+    "crates/wifi-densepose-wasm-edge",
     "crates/wifi-densepose-cli",
     "crates/wifi-densepose-mat",
     "crates/wifi-densepose-train",

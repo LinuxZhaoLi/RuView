@@ -25,6 +25,26 @@
 // still compiles cleanly during a default `cargo build --workspace` —
 // otherwise CI fails with E0601 (`main function not found`) on every PR
 // that touches the workspace, even ones unrelated to ADR-115.
+
+//! ADR-115 P6 — 使用 MQTT 发布者连接 `VitalsSnapshot` 广播通道的最小可运行示例。
+//!
+//! 使用以下命令运行：
+//!     cargo run --release -p wifi-densepose-sensing-server \
+//!         --features mqtt --example mqtt_publisher -- \
+//!         --mqtt --mqtt-host 127.0.0.1
+//!
+//! 然后在另一个终端：
+//!     mosquitto_sub -h 127.0.0.1 -t 'homeassistant/#' -v
+//!
+//! 每个节点的每个实体应有一个 HA 发现 `config` 主题，应在启动后一秒内完成，随后 `state` 主题以配置的速率进行更新。
+//!
+//! 本示例是 `main.rs` 的生产环境布线蓝图：
+//! 下面每一行都描述了当 `args.mqtt` 为真时，二进制文件的启动路径应执行的操作。
+//! 将其保留在 `examples/` 目录中，使我们能够端到端验证布线，而无需修改长达6000行的 `main.rs`（该文件是并行 ADR-110 代理的当前编辑界面——参见 [[feedback-multi-agent-worktree]])。
+
+// 完整的示例体需要启用 `mqtt` 功能（如 rumqttc、publisher::spawn 等）。当禁用该功能时，我们会提供一个占位符 `main` 函数，以确保在默认的 `cargo build --workspace` 情况下示例仍能正常编译——否则每次涉及工作区的 PR 都会因 E0601 错误
+// （`main function not found`）导致 CI 失败，即使这些 PR 与 ADR-115 无关。
+
 #[cfg(not(feature = "mqtt"))]
 fn main() {
     eprintln!(
