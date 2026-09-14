@@ -423,10 +423,12 @@ static mmwave_type_t probe_at_baud(uint32_t baud)
 
 /**
  * Auto-detect sensor by probing at both baud rates.
+ 自动检测传感器探测在两个波特率。
  * MR60BHA2 uses 115200, LD2410 uses 256000.
  */
 static mmwave_type_t probe_sensor(void)
 {
+    ESP_LOGI(TAG, "自动检测传感器探测在两个波特率。");
     ESP_LOGI(TAG, "Probing at %d baud (MR60BHA2)...", MMWAVE_MR60_BAUD);
     mmwave_type_t result = probe_at_baud(MMWAVE_MR60_BAUD);
     if (result != MMWAVE_TYPE_NONE) return result;

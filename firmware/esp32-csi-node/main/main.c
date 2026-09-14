@@ -1,10 +1,12 @@
 /**
  * @file main.c
  * @brief ESP32-S3 CSI Node — ADR-018 compliant firmware.
- *
+ *ESP32-S3 CSI Node - ADR-018兼容固件.
  * Initializes NVS, WiFi STA mode, CSI collection, and UDP streaming.
  * CSI frames are serialized in ADR-018 binary format and sent to the
  * aggregator over UDP.
+ * 初始化NVS，WiFi STA模式，CSI采集，UDP流。
+ * CSI帧被序列化为ADR-018二进制格式，并通过UDP发送到聚合器。
  */
 
 #include <string.h>
@@ -201,7 +203,7 @@ static void led_gamma_40hz_cb(void *arg)
 
 void app_main(void)
 {
-    /* Initialize NVS */
+    /* 初始化NVS */
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -209,12 +211,16 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    /* Load runtime config (NVS overrides Kconfig defaults) */
+    /* 加载NVS配置 */
     nvs_config_load(&g_nvs_config);
 
     /* Capture node_id IMMEDIATELY — before wifi_init_sta() can corrupt
      * g_nvs_config. See #232/#375/#390: WiFi driver init clobbers the struct
-     * on some devices, reverting node_id to the Kconfig default of 1. */
+     * on some devices, reverting node_id to the Kconfig default of 1. 
+     *  WiFi驱动程序init破坏结构体
+     * 在某些设备上，将node_id恢复为Kconfig默认值1。
+     * 初始化CSI采集器节点ID,在WiFi STA模式下使用。
+     */
     csi_collector_set_node_id(g_nvs_config.node_id);
 
     const esp_app_desc_t *app_desc = esp_app_get_description();
@@ -226,18 +232,23 @@ void app_main(void)
     const char *target_name = "ESP32";
 #endif
     ESP_LOGI(TAG, "%s CSI Node (ADR-018 / ADR-110) — v%s — Node ID: %d",
-             target_name, app_desc->version, g_nvs_config.node_id);
+             target_name, app_desc->version, g_nvs_config.node_id); //返回esp_app_desc结构。这个结构包括应用版本。
 
     /* Onboard WS2812. C6 wires the LED to GPIO 8; S3 to GPIO 38 (DevKitC-1 v1.0)
      * or GPIO 48 (DevKitC-1 v1.1 / N16R8 — see #962). On S3 we drive 48 (the
      * common module). On C6, GPIO 38/48 don't exist (only 0-30) — gate by target.
      * Behaviour is set by CONFIG_LED_GAMMA_VIZ (ADR-183): on = 40 Hz gamma flicker
-     * coloured by CSI motion; off = clear the LED at boot. */
+     * coloured by CSI motion; off = clear the LED at boot.
+     WS2812 芯片的 C6 信号线将 LED 连接到 GPIO 8；S3 信号线连接到 GPIO 38（DevKitC-1 v1.0）或 GPIO 48（DevKitC-1 v1.1 / N16R8 — 参见 #962）。在 S3 上，我们驱动 48（即公共模块）。
+    在 C6 上，GPIO 38/48 并不存在（仅支持 0-30），需根据目标设备进行门控。  
+    行为由 CONFIG_LED_GAMMA_VIZ 控制（ADR-183）：开启时，LED 以 40 Hz 的伽马闪烁频率，通过 CSI 运动颜色变化显示；关闭时，在启动时清空 LED 灯光。
+     */
 #if defined(CONFIG_IDF_TARGET_ESP32C6)
     const int led_gpio = 8;
 #else
     const int led_gpio = 48;
 #endif
+    // 配置LED条
     led_strip_config_t strip_config = {
         .strip_gpio_num = led_gpio,
         .max_leds = 1,
@@ -245,10 +256,12 @@ void app_main(void)
         .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
         .flags.invert_out = false,
     };
+    // 配置RMT通道
     led_strip_rmt_config_t rmt_config = {
         .resolution_hz = 10 * 1000 * 1000, // 10MHz
         .flags.with_dma = false,
     };
+    // 如果LED可视化使能
 #if CONFIG_LED_GAMMA_VIZ
     if (led_strip_new_rmt_device(&strip_config, &rmt_config, &s_viz_led) == ESP_OK) {
         const esp_timer_create_args_t viz_args = {
@@ -262,7 +275,8 @@ void app_main(void)
         }
     }
 #else
-    /* Viz disabled — clear the onboard LED at boot and release the RMT channel. */
+    /* Viz disabled — clear the onboard LED at boot and release the RMT channel. 
+       Viz 已禁用 — 启动时清除板载 LED 并释放 RMT 通道。*/
     led_strip_handle_t led_strip;
     if (led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip) == ESP_OK) {
         led_strip_clear(led_strip);
@@ -273,7 +287,10 @@ void app_main(void)
     /* ADR-110 P4: 802.15.4 mesh time-sync (C6 only).
      * Initialized BEFORE WiFi so it's available even when WiFi STA can't
      * connect — the radios are physically independent on the C6.
-     * No-op on S3 (the helper compiles to an empty inline stub). */
+     * No-op on S3 (the helper compiles to an empty inline stub). 
+     ADR-110 P4：802.15.4 网络时间同步（仅限C6）。
+* 在WiFi初始化之前启动，因此即使WiFi STA无法连接时仍可用——C6上的无线电在物理上是独立的。
+* 在S3模式下无操作（辅助组件编译为一个空的内联子程序）。*/
 #if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(CONFIG_C6_TIMESYNC_ENABLE)
     esp_err_t ts_ret = c6_timesync_init(CONFIG_C6_TIMESYNC_CHANNEL);
     if (ts_ret != ESP_OK) {
@@ -284,31 +301,41 @@ void app_main(void)
 
     /* ADR-110 P5: Optionally arm LP-core wake-on-motion (C6 only, opt-in).
      * Default off — only nodes flashed for battery-powered seed duty enable
-     * this in menuconfig. */
+     * this in menuconfig. 
+     ADR-110 P5：可选启用LP核心唤醒功能（仅C6支持，需主动开启）。  
+* 默认关闭 — 仅在电池供电的种子任务中启用闪存节点  
+* 此设置位于菜单配置中。
+     */
 #if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(CONFIG_C6_LP_CORE_ENABLE)
     if (c6_lp_core_was_motion_wake()) {
         ESP_LOGI(TAG, "boot cause: LP-core motion wake (running CSI burst)");
     }
 #endif
 
-    /* Initialize WiFi STA (skip entirely under QEMU mock — no RF hardware) */
+    /* Initialize WiFi STA (skip entirely under QEMU mock — no RF hardware) 
+     * 初始化WiFi STA（在QEMU模拟模式下跳过初始化，因为没有RF硬件）
+     */
 #ifndef CONFIG_CSI_MOCK_SKIP_WIFI_CONNECT
     wifi_init_sta();
 #else
-    ESP_LOGI(TAG, "Mock CSI mode: skipping WiFi init (CONFIG_CSI_MOCK_SKIP_WIFI_CONNECT)");
+    ESP_LOGI(TAG, "模拟CSI模式：跳过WiFi初始化");
 #endif
 
-    /* Initialize UDP sender with runtime target */
+    /* Initialize UDP sender with runtime target 
+     * 初始化UDP发送器（在运行时目标IP和端口）
+     */
 #ifdef CONFIG_CSI_MOCK_SKIP_WIFI_CONNECT
-    ESP_LOGI(TAG, "Mock CSI mode: skipping UDP sender init (no network)");
+    ESP_LOGI(TAG, "模拟CSI模式：跳过UDP发送器初始化");
 #else
     if (stream_sender_init_with(g_nvs_config.target_ip, g_nvs_config.target_port) != 0) {
-        ESP_LOGE(TAG, "Failed to initialize UDP sender");
+        ESP_LOGE(TAG, "UDP发送器初始化失败");
         return;
     }
 #endif
 
-    /* Initialize CSI collection */
+    /* Initialize CSI collection
+     * 初始化CSI采集器（在QEMU模拟模式下替换真实WiFi CSI）
+     */
 #ifdef CONFIG_CSI_MOCK_ENABLED
     /* ADR-061: Start mock CSI generator (replaces real WiFi CSI in QEMU) */
     esp_err_t mock_ret = mock_csi_init(CONFIG_CSI_MOCK_SCENARIO);
@@ -319,12 +346,15 @@ void app_main(void)
     }
 #else
     csi_collector_init();
+    ESP_LOGI(TAG, "CSI采集器初始化完成");
 
-    /* ADR-073: Start multi-frequency channel hopping if configured in NVS. */
+    /* ADR-073: Start multi-frequency channel hopping if configured in NVS.
+    如果在NVS中配置，启动多频信道跳频 */
     if (g_nvs_config.channel_hop_count > 1) {
-        ESP_LOGI(TAG, "Starting channel hopping: %u channels, dwell=%lu ms",
+        ESP_LOGI(TAG, "多频信道跳频: %u 信道, dwell=%lu ms",
                  (unsigned)g_nvs_config.channel_hop_count,
                  (unsigned long)g_nvs_config.dwell_ms);
+        // 设置多频信道跳频表
         csi_collector_set_hop_table(
             g_nvs_config.channel_list,
             g_nvs_config.channel_hop_count,
@@ -335,7 +365,11 @@ void app_main(void)
     /* ADR-110 P3: Request TWT from the AP for deterministic CSI cadence.
      * No-op on S3 (the helper compiles to an empty inline stub). On C6
      * the AP may NACK — the helper logs and falls back to opportunistic.
-     * Called only after WiFi STA connect (wifi_init_sta blocks until then). */
+     * Called only after WiFi STA connect (wifi_init_sta blocks until then). 
+     ADR-110 P3：向AP申请确定的CSI节奏的TWT。
+* S3上无操作（helper编译成一个空的内联存根）。在C6
+AP可能会NACK——helper记录日志并返回到机会主义。
+*仅在WiFi STA连接后调用（wifi_init_sta阻塞直到那时）。*/
 #if defined(CONFIG_IDF_TARGET_ESP32C6) && defined(CONFIG_C6_TWT_ENABLE)
     c6_twt_setup_default();
 #endif
@@ -343,54 +377,67 @@ void app_main(void)
     /* ADR-110 D1 workaround: ESP-NOW cross-node sync. Initialized after
      * WiFi STA connects (ESP-NOW needs the WiFi driver up). Works on
      * both S3 and C6 — replaces the broken 802.15.4 RX path in c6_timesync.
-     * Skip on QEMU mock (no real WiFi → no ESP-NOW). */
+     * Skip on QEMU mock (no real WiFi → no ESP-NOW). 
+     ADR-110 D1：ESP-NOW跨节点同步（在WiFi STA连接后初始化）。
+* 仅在C6上工作（替换c6_timesync中的802.15.4接收路径）。
+* 在QEMU模拟模式下跳过初始化（因为没有真实WiFi，所以没有ESP-NOW）。*/
 #ifndef CONFIG_CSI_MOCK_SKIP_WIFI_CONNECT
     esp_err_t espnow_ret = c6_sync_espnow_init();
     if (espnow_ret != ESP_OK) {
-        ESP_LOGW(TAG, "c6_sync_espnow_init failed: %s (continuing without ESP-NOW sync)",
+        ESP_LOGW(TAG, "ESP-NOW同步初始化失败（继续运行）",
                  esp_err_to_name(espnow_ret));
     }
 #endif
 
-    /* ADR-039: Initialize edge processing pipeline. */
+    /* ADR-039: Initialize edge processing pipeline. 
+    初始化边缘处理管道（在QEMU模拟模式下替换真实边缘处理） */
     edge_config_t edge_cfg = {
-        .tier              = g_nvs_config.edge_tier,
-        .presence_thresh   = g_nvs_config.presence_thresh,
-        .fall_thresh       = g_nvs_config.fall_thresh,
-        .vital_window      = g_nvs_config.vital_window,
-        .vital_interval_ms = g_nvs_config.vital_interval_ms,
-        .top_k_count       = g_nvs_config.top_k_count,
-        .power_duty        = g_nvs_config.power_duty,
+        .tier              = g_nvs_config.edge_tier,  // 边缘处理等级
+        .presence_thresh   = g_nvs_config.presence_thresh,  // 存在阈值
+        .fall_thresh       = g_nvs_config.fall_thresh,  // 跌落阈值
+        .vital_window      = g_nvs_config.vital_window,  // 生命窗口（单位：毫秒）
+        .vital_interval_ms = g_nvs_config.vital_interval_ms,  // 生命窗口间隔（单位：毫秒）
+        .top_k_count       = g_nvs_config.top_k_count,  // 保留前K个事件
+        .power_duty        = g_nvs_config.power_duty,  // 功率占空比（单位：毫秒）
     };
     esp_err_t edge_ret = edge_processing_init(&edge_cfg);
     if (edge_ret != ESP_OK) {
-        ESP_LOGW(TAG, "Edge processing init failed: %s (continuing without edge DSP)",
+        ESP_LOGW(TAG, "边缘处理初始化失败（继续运行）",
                  esp_err_to_name(edge_ret));
     }
 
-    /* Initialize OTA update HTTP server (requires network). */
+    /* ADR-040: Initialize OTA update HTTP server 
+    初始化OTA更新HTTP服务器（需要QEMU模拟模式下替换真实OTA服务器） 
+    */
     httpd_handle_t ota_server = NULL;
 #ifndef CONFIG_CSI_MOCK_SKIP_WIFI_CONNECT
     esp_err_t ota_ret = ota_update_init_ex(&ota_server);
     if (ota_ret != ESP_OK) {
-        ESP_LOGW(TAG, "OTA server init failed: %s", esp_err_to_name(ota_ret));
+        ESP_LOGW(TAG, "OTA更新HTTP服务器初始化失败（继续运行）",
+                 esp_err_to_name(ota_ret));
     }
 #else
     esp_err_t ota_ret = ESP_ERR_NOT_SUPPORTED;
-    ESP_LOGI(TAG, "Mock CSI mode: skipping OTA server (no network)");
+    ESP_LOGI(TAG, "模拟CSI模式：跳过OTA服务器（无网络）");
 #endif
 
-    /* ADR-040: Initialize WASM programmable sensing runtime. */
+    /* ADR-040: Initialize WASM programmable sensing runtime.
+    初始化WASM可编程传感器运行时环境（在QEMU模拟模式下替换真实WASM可编程传感器运行时环境） */
     esp_err_t wasm_ret = wasm_runtime_init();
     if (wasm_ret != ESP_OK) {
-        ESP_LOGW(TAG, "WASM runtime init failed: %s", esp_err_to_name(wasm_ret));
+        ESP_LOGW(TAG, "WASM可编程传感器运行时环境初始化失败（继续运行）",
+                 esp_err_to_name(wasm_ret));
     } else {
-        /* Register WASM upload endpoints on the OTA HTTP server. */
+        /* Register WASM upload endpoints on the OTA HTTP server. 
+        注册WASM上传端点到OTA更新HTTP服务器上
+        如果OTA更新HTTP服务器未初始化，则不注册 */
         if (ota_server != NULL) {
             wasm_upload_register(ota_server);
         }
 
-        /* Start periodic timer for wasm_runtime_on_timer(). */
+        /* Start periodic timer for wasm_runtime_on_timer(). 
+           开始WASM可编程传感器运行时环境定时器，用于周期性调用wasm_runtime_on_timer()函数
+        */
         esp_timer_create_args_t timer_args = {
             .callback = (void (*)(void *))wasm_runtime_on_timer,
             .arg = NULL,
@@ -404,33 +451,37 @@ void app_main(void)
 #else
             uint64_t interval_us = 1000000ULL;  /* Default: 1 second. */
 #endif
-            esp_timer_start_periodic(s_wasm_timer, interval_us);
-            ESP_LOGI(TAG, "WASM on_timer() periodic: %llu ms",
+            esp_timer_start_periodic(s_wasm_timer, interval_us);// 开始WASM可编程传感器运行时环境定时器，用于周期性调用wasm_runtime_on_timer()函数
+            ESP_LOGI(TAG, "WASM on_timer（）周期性的: %llu ms",
                      (unsigned long long)(interval_us / 1000));
         } else {
-            ESP_LOGW(TAG, "WASM timer create failed: %s", esp_err_to_name(timer_ret));
+            ESP_LOGW(TAG, "WASM可编程传感器运行时环境定时器创建失败（继续运行）",
+                     esp_err_to_name(timer_ret));
         }
     }
 
-    /* ADR-063: Initialize mmWave sensor (auto-detect on UART). */
+    /* ADR-063: Initialize mmWave sensor (auto-detect on UART). 
+    初始化mmWave传感器（自动检测UART端口） */
     esp_err_t mmwave_ret = mmwave_sensor_init(-1, -1);  /* -1 = use default GPIO pins */
     if (mmwave_ret == ESP_OK) {
         mmwave_state_t mw;
         if (mmwave_sensor_get_state(&mw)) {
-            ESP_LOGI(TAG, "mmWave sensor: %s (caps=0x%04x)",
+            ESP_LOGI(TAG, "mmWave传感器: %s (caps=0x%04x)",
                      mmwave_type_name(mw.type), mw.capabilities);
         }
     } else {
-        ESP_LOGI(TAG, "No mmWave sensor detected (CSI-only mode)");
+        ESP_LOGI(TAG, "未检测到mmWave传感器（仅CSI模式）");
     }
 
-    /* ADR-066: Initialize swarm bridge to Cognitum Seed (if configured). */
+    /* ADR-066: Initialize swarm bridge to Cognitum Seed (if configured). 
+    初始化Cognitum Seed集群桥接（如果配置了） 
+    */
     esp_err_t swarm_ret = ESP_ERR_INVALID_ARG;
 #ifndef CONFIG_CSI_MOCK_SKIP_WIFI_CONNECT
-    if (g_nvs_config.seed_url[0] != '\0') {
+    if (g_nvs_config.seed_url[0] != '\0') {  //如果配置了Cognitum Seed种子URL
         swarm_config_t swarm_cfg = {
-            .heartbeat_sec = g_nvs_config.swarm_heartbeat_sec,
-            .ingest_sec    = g_nvs_config.swarm_ingest_sec,
+            .heartbeat_sec = g_nvs_config.swarm_heartbeat_sec,  // 心跳间隔（单位：秒）
+            .ingest_sec    = g_nvs_config.swarm_ingest_sec,  // 数据采集间隔（单位：秒）
             .enabled       = 1,
         };
         strlcpy(swarm_cfg.seed_url, g_nvs_config.seed_url,
@@ -439,15 +490,15 @@ void app_main(void)
                 sizeof(swarm_cfg.seed_token));
         strlcpy(swarm_cfg.zone_name, g_nvs_config.zone_name,
                 sizeof(swarm_cfg.zone_name));
-        swarm_ret = swarm_bridge_init(&swarm_cfg, csi_collector_get_node_id());
+        swarm_ret = swarm_bridge_init(&swarm_cfg, csi_collector_get_node_id()); // 初始化Cognitum Seed集群桥接
         if (swarm_ret != ESP_OK) {
-            ESP_LOGW(TAG, "Swarm bridge init failed: %s", esp_err_to_name(swarm_ret));
+            ESP_LOGW(TAG, "Cognitum Seed集群桥接初始化失败: %s", esp_err_to_name(swarm_ret));
         }
     } else {
-        ESP_LOGI(TAG, "Swarm bridge disabled (no seed_url configured)");
+        ESP_LOGI(TAG, "未配置Cognitum Seed种子URL，跳过初始化");
     }
 #else
-    ESP_LOGI(TAG, "Mock CSI mode: skipping swarm bridge");
+    ESP_LOGI(TAG, "模拟CSI模式：跳过蜂群");
 #endif
 
     /* ADR-081 Layer 1: register the active radio ops binding.
@@ -455,34 +506,44 @@ void app_main(void)
      * - QEMU / offline: mock binding wrapping mock_csi.c.
      * Either way, the layers above (adaptive controller, mesh plane,
      * feature extraction) address the radio through the same vtable —
-     * this is the portability acceptance test in ADR-081. */
+     * this is the portability acceptance test in ADR-081. 
+     ADR-081第1层：注册活动无线电操作绑定。
+* -真实硬件：ESP32绑定包装csi_collector + esp_wifi。 - QEMU / offline: mock绑定包装mock_csi.c无论哪种方式，
+上面的层(自适应控制器，网格平面，特征提取)地址无线电通过相同的虚表-这是ADR-081中的可移植性验收测试。*/
 #ifdef CONFIG_CSI_MOCK_ENABLED
     rv_radio_ops_mock_register();
 #else
-    rv_radio_ops_esp32_register();
+    rv_radio_ops_esp32_register();  // 注册ESP32无线电操作绑定
 #endif
-    const rv_radio_ops_t *radio_ops = rv_radio_ops_get();
+    const rv_radio_ops_t *radio_ops = rv_radio_ops_get();  // 获取当前无线电操作绑定
     if (radio_ops != NULL && radio_ops->init != NULL) {
         radio_ops->init();
     }
 
     /* ADR-081 Layer 2: start the adaptive controller. NULL config → use
      * Kconfig defaults. Default policy is conservative: no channel
-     * switching, no role change. Operators opt in via menuconfig. */
+     * switching, no role change. Operators opt in via menuconfig. 
+     ADR-081 第二层：启动自适应控制器。NULL 配置 → 使用  
+* Kconfig 默认值。默认策略为保守模式：不切换通道，不改变角色。操作员通过 menuconfig 启用。
+     */
     esp_err_t adapt_ret = adaptive_controller_init(NULL);
     if (adapt_ret != ESP_OK) {
-        ESP_LOGW(TAG, "Adaptive controller init failed: %s",
+        ESP_LOGW(TAG, "自适应控制器初始化失败: %s",
                  esp_err_to_name(adapt_ret));
     }
 
-    /* Initialize power management. */
+    /* Initialize power management. 
+    初始化电源管理。
+    */
     power_mgmt_init(g_nvs_config.power_duty);
 
-    /* ADR-045: Start AMOLED display task (gracefully skips if no display). */
+    /* ADR-045: Start AMOLED display task (gracefully skips if no display). 
+    启动AMOLED显示任务（优雅跳过，如果无显示）。
+    */
 #ifdef CONFIG_DISPLAY_ENABLE
     esp_err_t disp_ret = display_task_start();
     if (disp_ret != ESP_OK) {
-        ESP_LOGW(TAG, "Display init returned: %s", esp_err_to_name(disp_ret));
+        ESP_LOGW(TAG, "显示初始化返回: %s", esp_err_to_name(disp_ret));
     }
 #endif
 
@@ -491,17 +552,20 @@ void app_main(void)
      * callback on display-less boards — yield collapses to 0 pps and the node
      * looks dead despite being on the network. Now that the display probe has
      * run, boards with no AMOLED panel (no QSPI/SPI-flash cache contention)
-     * upgrade the filter to capture DATA frames too, restoring CSI yield. */
+     * upgrade the filter to capture DATA frames too, restoring CSI yield. 
+     RuView#893/#521：仅在MGMT中使用的随意过滤器（在csi_collector_init中设置为#396显示崩溃的临时解决方案）
+     导致无显示屏板上的CSI回调饥饿——Yield降至0 pps，节点尽管处于网络中却看起来已失效。现在显示探测已完成，
+     对于没有AMOLED面板的板卡（无QSPI/SPI闪存缓存竞争），升级过滤器以捕获DATA帧，从而恢复CSI的Yield。*/
 #ifdef CONFIG_DISPLAY_ENABLE
-    bool has_display = display_is_active();   /* runtime panel probe result */
+    bool has_display = display_is_active();   /* runtime panel probe result运行时面板探测结果 */
 #else
-    bool has_display = false;                 /* display support not compiled in */
+    bool has_display = false;                 /* display support not compiled in 显示支持未编译进固件 */
 #endif
     if (!has_display) {
         csi_collector_enable_data_capture();
     }
 
-    ESP_LOGI(TAG, "CSI streaming active → %s:%d (edge_tier=%u, OTA=%s, WASM=%s, mmWave=%s, swarm=%s, adapt=%s)",
+    ESP_LOGI(TAG, "CSI流式传输已激活 → %s:%d (edge_tier=%u, OTA=%s, WASM=%s, mmWave=%s, swarm=%s, adapt=%s)",
              g_nvs_config.target_ip, g_nvs_config.target_port,
              g_nvs_config.edge_tier,
              (ota_ret == ESP_OK) ? "ready" : "off",

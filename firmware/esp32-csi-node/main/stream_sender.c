@@ -70,6 +70,10 @@ int stream_sender_init_with(const char *ip, uint16_t port)
     return sender_init_internal(ip, port);
 }
 
+/**
+ * @brief Send serialized ADR-018 frames to the aggregator.
+ * 发送序列化的后的ADR-018帧到聚合器
+ */
 int stream_sender_send(const uint8_t *data, size_t len)
 {
     if (s_sock < 0) {
@@ -78,31 +82,35 @@ int stream_sender_send(const uint8_t *data, size_t len)
 
     /* ENOMEM backoff: if we recently exhausted lwIP buffers, skip sends
      * until the cooldown expires.  This prevents the cascade of failed
-     * sendto calls that leads to a guru meditation crash. */
-    if (s_backoff_until_us > 0) {
+     * sendto calls that leads to a guru meditation crash. 
+     * 早期速率门限：丢弃额外的回调以防止WiFi ISR（wDev_ProcessFiq）中的SPI闪存缓存崩溃
+     *
+    */
+    if (s_backoff_until_us > 0) {  // 有冷却时间，等待冷却结束
         int64_t now = esp_timer_get_time();
         if (now < s_backoff_until_us) {
             s_enomem_suppressed++;
-            if ((s_enomem_suppressed % ENOMEM_LOG_INTERVAL) == 1) {
-                ESP_LOGW(TAG, "sendto suppressed (ENOMEM backoff, %lu dropped)",
+            if ((s_enomem_suppressed % ENOMEM_LOG_INTERVAL) == 1) {  // 每50次发送失败，记录一次日志
+                ESP_LOGW(TAG, "发送被抑制（ENOMEM 回退，%lu 个帧被丢弃)",
                          (unsigned long)s_enomem_suppressed);
             }
             return -1;
         }
         /* Cooldown expired — resume sending */
-        ESP_LOGI(TAG, "ENOMEM backoff expired, resuming sends (%lu were suppressed)",
+        ESP_LOGI(TAG, "发送被抑制（ENOMEM 回退，%lu 个帧被丢弃)",
                  (unsigned long)s_enomem_suppressed);
         s_backoff_until_us = 0;
         s_enomem_suppressed = 0;
     }
 
     int sent = sendto(s_sock, data, len, 0,
-                      (struct sockaddr *)&s_dest_addr, sizeof(s_dest_addr));
+                      (struct sockaddr *)&s_dest_addr, sizeof(s_dest_addr));  // 发送数据到聚合器
     if (sent < 0) {
         if (errno == ENOMEM) {
             /* Exponential backoff: double the cooldown each consecutive ENOMEM
              * (capped) so sustained buffer pressure actually drains instead of
-             * the node re-failing every 100 ms forever (#1135 bug #1). */
+             * the node re-failing every 100 ms forever (#1135 bug #1).
+              */
             uint32_t shift = s_enomem_streak < 5 ? s_enomem_streak : 5;
             uint32_t cooldown = ENOMEM_COOLDOWN_MS << shift;
             if (cooldown > ENOMEM_COOLDOWN_MAX_MS) cooldown = ENOMEM_COOLDOWN_MAX_MS;
@@ -116,7 +124,9 @@ int stream_sender_send(const uint8_t *data, size_t len)
         return -1;
     }
 
-    /* A send got through — buffer pressure cleared; reset the backoff streak. */
+    /* A send got through — buffer pressure cleared; reset the backoff streak.
+     * 发送成功，重置冷却时间
+     */
     s_enomem_streak = 0;
     return sent;
 }

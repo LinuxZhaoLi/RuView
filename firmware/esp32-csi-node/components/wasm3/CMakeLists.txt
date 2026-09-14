@@ -19,7 +19,8 @@ if(NOT EXISTS "${WASM3_DIR}/source/wasm3.h")
     message(STATUS "Attempting to download WASM3...")
 
     # Try downloading inside build environment.
-    set(WASM3_URL "https://github.com/nicholasgasior/wasm3/archive/refs/heads/main.tar.gz")
+    # set(WASM3_URL "https://github.com/nicholasgasior/wasm3/archive/refs/heads/main.tar.gz")
+    set(WASM3_URL "https://github.com/wasm3/wasm3/archive/refs/heads/main.tar.gz")
     set(WASM3_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/wasm3.tar.gz")
 
     file(DOWNLOAD "${WASM3_URL}" "${WASM3_ARCHIVE}"

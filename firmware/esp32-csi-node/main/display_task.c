@@ -85,23 +85,26 @@ static void display_task(void *arg)
     }
 }
 
-/* ---- Public API ---- */
+/* ---- Public API ----
+ * @brief 初始化显示子系统
+ * @return esp_err_t 错误码
+ * */
 
 esp_err_t display_task_start(void)
 {
-    ESP_LOGI(TAG, "Initializing display subsystem...");
+    ESP_LOGI(TAG, "初始化显示子系统…");
 
     bool use_psram = false;
 #if CONFIG_SPIRAM
     size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     if (psram_free >= 64 * 1024) {
         use_psram = true;
-        ESP_LOGI(TAG, "PSRAM available: %u KB — using PSRAM buffers", (unsigned)(psram_free / 1024));
+        ESP_LOGI(TAG, "PSRAM available: %u KB — 使用PSRAM缓冲区", (unsigned)(psram_free / 1024));
     } else {
-        ESP_LOGW(TAG, "PSRAM too small (%u bytes) — falling back to internal DMA memory", (unsigned)psram_free);
+        ESP_LOGW(TAG, "PSRAM too small (%u bytes) — 回落到内部DMA存储器", (unsigned)psram_free);
     }
 #else
-    ESP_LOGW(TAG, "SPIRAM not enabled — using internal DMA memory (smaller buffers)");
+    ESP_LOGW(TAG, "SPIRAM not enabled — 使用内部DMA内存（较小的缓冲区）");
 #endif
 
     /* Probe display hardware */

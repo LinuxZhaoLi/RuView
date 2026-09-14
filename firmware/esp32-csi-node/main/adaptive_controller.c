@@ -43,7 +43,8 @@ static TimerHandle_t s_fast_timer   = NULL;
 static TimerHandle_t s_medium_timer = NULL;
 static TimerHandle_t s_slow_timer   = NULL;
 
-/* Forward decl: defined below, called from fast_loop_cb. */
+/* Forward decl: defined below, called from fast_loop_cb.
+Forward decl：定义如下，从fast_loop_cb调用。 */
 static void emit_feature_state(void);
 
 /* ---- Defaults ---- */
@@ -228,10 +229,18 @@ static void fast_loop_cb(TimerHandle_t t)
      * for 100 ms`, and bumping LWIP/WiFi buffer pools to 4× had no effect
      * on the rate because the bottleneck was radio TX time, not pool size.
      * Dropping to 1 Hz (5× less feature_state traffic) frees the TX queue
-     * for CSI sends and lands well within the spec. */
+     * for CSI sends and lands well within the spec.
+     ADR-081 第4/5层：以1 Hz频率（规格中规定的最低频率1–10 Hz）发送紧凑型特征状态。
+     此前在每个快速时钟周期（默认200毫秒的快速周期，约5 Hz）都会发送，这与CSI广播接收导致的缓冲区饱和，
+     使得Wi-Fi发射空闲时间被占满——通过COM8（S3）和COM9（C6）实时测量：
+     每次自适应周期均显示“sendto ENOMEM — 退避100毫秒”，即使将LWIP/WiFi缓冲池增大至4倍，也无法提升速率，
+     因为瓶颈在于无线电发射时间而非缓冲池大小。
+     降低到1 Hz（特征状态流量减少5倍），可释放发射队列，用于CSI数据发送，并完全符合规范要求。
+      */
     static uint8_t s_emit_divider = 0;
     if (++s_emit_divider >= 5) {
         s_emit_divider = 0;
+        ESP_LOGI("DEBUG","call emit_feature_state");
         emit_feature_state();
     }
 }
@@ -265,7 +274,12 @@ static void medium_loop_cb(TimerHandle_t t)
  * failures; we don't re-queue. At 5 Hz default cadence this is 300 B/s
  * per node, vs. ~100 KB/s for raw ADR-018 CSI. */
 static uint16_t s_feature_state_seq = 0;
-
+/**
+ * @brief 发送特征状态包
+ * @details 从最新观测、最新 vitals 和活动捕获配置文件中拉取数据。
+ * 发送是最佳努力，流发送器将报告其自己的失败；我们不会重新排队。
+ * 在默认5 Hz cadence下，这是每个节点300 B/s，而原始ADR-018 CSI为100 KB/s。
+*/
 static void emit_feature_state(void)
 {
     rv_feature_state_t pkt;

@@ -271,13 +271,17 @@ size_t csi_serialize_frame(const wifi_csi_info_t *info, uint8_t *buf, size_t buf
 
 /**
  * WiFi CSI callback — invoked by ESP-IDF when CSI data is available.
+ * WiFi CSI回调-当CSI数据可用时由ESP-IDF调用
  */
 static void wifi_csi_callback(void *ctx, wifi_csi_info_t *info)
 {
     (void)ctx;
 
     /* Early rate gate: drop excess callbacks to ~50 Hz to prevent
-     * SPI flash cache crash in WiFi ISR (wDev_ProcessFiq). */
+     * SPI flash cache crash in WiFi ISR (wDev_ProcessFiq). 
+     * 早期速率门限：丢弃额外的回调以防止WiFi ISR（wDev_ProcessFiq）中的SPI闪存缓存崩溃
+     */
+    
     int64_t now_us = esp_timer_get_time();
     if ((now_us - s_last_process_us) < CSI_MIN_PROCESS_INTERVAL_US) {
         s_early_drop++;
@@ -435,46 +439,50 @@ static void wifi_promiscuous_cb(void *buf, wifi_promiscuous_pkt_type_t type)
 static esp_ping_handle_t s_self_ping = NULL;
 static void csi_ping_cb_noop(esp_ping_handle_t hdl, void *args) { (void)hdl; (void)args; }
 
+/**
+ * @brief 启动自Ping，用于确保CSI引擎在混杂捕获资源不足（如显示构建/静默网络）的情况下也能接收到保证的OFDM单播信道。
+ * 此396/#396/#893的补充。
+ **/
 static void csi_start_self_ping(void)
 {
     if (s_self_ping != NULL) {
-        return;  /* already running */
+        return;  /* 已运行 */
     }
 
-    esp_netif_t *sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    esp_netif_t *sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");  // 获取STA网络接口句柄
     esp_netif_ip_info_t ip;
     if (sta == NULL || esp_netif_get_ip_info(sta, &ip) != ESP_OK || ip.gw.addr == 0) {
-        ESP_LOGW(TAG, "self-ping: no gateway IP yet; CSI relies on ambient frames (#954)");
+        ESP_LOGW(TAG, "自Ping: 未获取到网关IP; CSI依赖环境帧 (#954)");
         return;
     }
 
     char gw_str[16];
-    esp_ip4addr_ntoa(&ip.gw, gw_str, sizeof(gw_str));
+    esp_ip4addr_ntoa(&ip.gw, gw_str, sizeof(gw_str));  // 将网关IP转换为字符串
 
     ip_addr_t target;
     memset(&target, 0, sizeof(target));
     ipaddr_aton(gw_str, &target);
 
-    esp_ping_config_t cfg = ESP_PING_DEFAULT_CONFIG();
-    cfg.target_addr     = target;
-    cfg.count           = ESP_PING_COUNT_INFINITE;
-    cfg.interval_ms     = CSI_SELF_PING_INTERVAL_MS;
+    esp_ping_config_t cfg = ESP_PING_DEFAULT_CONFIG();  // 获取默认Ping配置
+    cfg.target_addr     = target;  // 设置目标地址为网关IP
+    cfg.count           = ESP_PING_COUNT_INFINITE;  // 无限循环
+    cfg.interval_ms     = CSI_SELF_PING_INTERVAL_MS;  // 设置Ping间隔为100ms
     cfg.data_size       = 1;
     cfg.task_stack_size = 4096;
 
-    esp_ping_callbacks_t cbs = {
+    esp_ping_callbacks_t cbs = {  // 设置Ping回调函数
         .cb_args         = NULL,
-        .on_ping_success = csi_ping_cb_noop,
-        .on_ping_timeout = csi_ping_cb_noop,
-        .on_ping_end     = csi_ping_cb_noop,
+        .on_ping_success = csi_ping_cb_noop,  // 成功回调函数
+        .on_ping_timeout = csi_ping_cb_noop,  // 超时回调函数
+        .on_ping_end     = csi_ping_cb_noop,  // 结束回调函数
     };
 
     if (esp_ping_new_session(&cfg, &cbs, &s_self_ping) == ESP_OK && s_self_ping != NULL) {
         esp_ping_start(s_self_ping);
-        ESP_LOGI(TAG, "self-ping started -> %s @%dHz (CSI OFDM source, fix #521/#954)",
+        ESP_LOGI(TAG, "自Ping: 启动自Ping -> %s @%dHz (CSI OFDM source, fix #521/#954)",
                  gw_str, CONFIG_CSI_SELF_PING_HZ);
     } else {
-        ESP_LOGW(TAG, "self-ping: esp_ping_new_session failed");
+        ESP_LOGW(TAG, "自Ping: esp_ping_new_session failed");
         s_self_ping = NULL;
     }
 }
@@ -497,64 +505,88 @@ void csi_collector_set_node_id(uint8_t node_id)
                  s_filter_mac[3], s_filter_mac[4], s_filter_mac[5]);
     }
 }
-
+/**
+ * @brief 初始化CSI采集器
+ * 
+ * 初始化CSI采集器，设置节点ID和MAC过滤器配置。
+*/
 void csi_collector_init(void)
 {
     if (!s_node_id_early_set) {
-        /* Fallback: no early capture — use current g_nvs_config (may be clobbered). */
+        /* Fallback: no early capture — use current g_nvs_config (may be clobbered). 
+         * 回退：如果在未设置节点ID之前初始化，使用当前g_nvs_config中的节点ID。
+         */
         s_node_id = g_nvs_config.node_id;
-        ESP_LOGW(TAG, "Late capture node_id=%u (no early set_node_id call)",
+        ESP_LOGW(TAG, "末捕捉 node_id=%u (没有早期set_node_id调用)",
                  (unsigned)s_node_id);
     } else if (g_nvs_config.node_id != s_node_id) {
         /* Canary: early capture disagrees with current g_nvs_config — corruption
-         * happened between nvs_config_load() and here (likely wifi_init_sta). */
-        ESP_LOGW(TAG, "node_id clobber CONFIRMED: early=%u g_nvs_config=%u "
-                 "(WiFi init likely corrupted struct, using early value)",
-                 (unsigned)s_node_id, (unsigned)g_nvs_config.node_id);
+         * happened between nvs_config_load() and here (likely wifi_init_sta). 
+         * 早期捕捉的节点ID与当前g_nvs_config中的节点ID不一致，可能是WiFi初始化时结构体被损坏。
+         */
+        ESP_LOGW(TAG, "确认node_id不一致：早期值=%u, g_nvs_config值=%u",
+                 s_node_id, g_nvs_config.node_id);
     } else {
-        ESP_LOGI(TAG, "node_id=%u verified (early capture matches g_nvs_config)",
+        ESP_LOGI(TAG, "确认node_id：与g_nvs_config中的节点ID一致",
                  (unsigned)s_node_id);
     }
 
-    /* Canary for filter_mac: check if WiFi init corrupted the filter fields. */
+    /* Canary for filter_mac: check if WiFi init corrupted the filter fields. 
+     * 检查WiFi初始化是否损坏了MAC过滤器字段。
+     */
     if (s_node_id_early_set) {
         bool mac_set_now = (g_nvs_config.filter_mac_set != 0);
         if (mac_set_now != s_filter_mac_set) {
-            ESP_LOGW(TAG, "filter_mac_set clobber CONFIRMED: early=%d g_nvs_config=%d",
+            /* Canary: early capture disagrees with current g_nvs_config — corruption
+             * happened between nvs_config_load() and here (likely wifi_init_sta). 
+             * 早期捕捉的filter_mac_set与当前g_nvs_config中的不一致，可能是WiFi初始化时结构体被损坏。
+             */
+            ESP_LOGW(TAG, "确认filter_mac_set不一致：早期值=%d, g_nvs_config值=%d",
                      (int)s_filter_mac_set, (int)mac_set_now);
         } else if (s_filter_mac_set &&
                    memcmp(s_filter_mac, g_nvs_config.filter_mac, 6) != 0) {
-            ESP_LOGW(TAG, "filter_mac clobber CONFIRMED: bytes differ after WiFi init");
+            ESP_LOGW(TAG, "确认filter_mac 函数在 WiFi 初始化后字节不一致，已确认");
         }
     } else {
-        /* No early capture — grab filter config now (may already be corrupted). */
+        /* No early capture — grab filter config now (may already be corrupted). 
+         * 未早期捕捉MAC过滤器配置，使用当前g_nvs_config中的MAC过滤器配置。
+         */
         s_filter_mac_set = (g_nvs_config.filter_mac_set != 0);
         if (s_filter_mac_set) {
-            memcpy(s_filter_mac, g_nvs_config.filter_mac, 6);
+            memcpy(s_filter_mac, g_nvs_config.filter_mac, 6);  // 复制当前g_nvs_config中的MAC过滤器配置
+                    ESP_LOGI(TAG, "确认filter_mac：%02x:%02x:%02x:%02x:%02x:%02x",
+                     s_filter_mac[0], s_filter_mac[1], s_filter_mac[2],
+                     s_filter_mac[3], s_filter_mac[4], s_filter_mac[5]);
         }
     }
 
-    /* ADR-060: Determine the CSI channel.
-     * Priority: 1) NVS override (--channel), 2) connected AP channel, 3) Kconfig default. */
+    /* ADR-060: Determine the CSI channel.确定CSI频道
+     * Priority: 
+     1) NVS override (--channel), 
+     2) connected AP channel, 
+     3) Kconfig default. 
+     */
     uint8_t csi_channel = (uint8_t)CONFIG_CSI_WIFI_CHANNEL;
 
     if (g_nvs_config.csi_channel > 0) {
         /* Explicit NVS override via provision.py --channel */
         csi_channel = g_nvs_config.csi_channel;
-        ESP_LOGI(TAG, "Using NVS channel override: %u", (unsigned)csi_channel);
+        ESP_LOGI(TAG, "使用NVS配置的CSI频道: %u", (unsigned)csi_channel);
     } else {
         /* Auto-detect from connected AP */
         wifi_ap_record_t ap_info;
         if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK && ap_info.primary > 0) {
             csi_channel = ap_info.primary;
-            ESP_LOGI(TAG, "Auto-detected AP channel: %u", (unsigned)csi_channel);
+            ESP_LOGI(TAG, "自动检测到的CSI频道: %u", (unsigned)csi_channel);
         } else {
-            ESP_LOGW(TAG, "Could not detect AP channel, using Kconfig default: %u",
+            ESP_LOGW(TAG, "无法检测到AP频道，使用Kconfig默认值: %u",
                      (unsigned)csi_channel);
         }
     }
 
-    /* Update the hop table's first channel to match. */
+    /* Update the hop table's first channel to match. 
+     * 更新跳转表的第一个频道，与CSI频道一致。
+     */
     s_hop_channels[0] = csi_channel;
 
     /* Disable WiFi modem sleep — reliable CSI capture needs the radio awake.
@@ -563,18 +595,25 @@ void csi_collector_init(void)
      * (RuView#396) that starves the CSI callback and the per-second yield
      * collapses toward 0 pps (RuView#521). Operators who want battery
      * duty-cycling opt back in via power_mgmt_init() (provision.py
-     * --duty-cycle <N>), which runs after this and re-enables modem sleep. */
+     * --duty-cycle <N>), which runs after this and re-enables modem sleep. 
+     禁用WiFi调制解调器睡眠模式——可靠的CSI捕获需要无线电保持开启状态。  
+* ESP-IDF STA默认设置为WIFI_PS_MIN_MODEM，这使得调制解调器在DTIM信标之间进入睡眠；  
+* 但仅使用MGMT的混杂过滤（RuView#396）会耗尽CSI回调功能，并导致每秒让出率接近0pps（RuView#521）。  
+* 想要实现电池功耗循环的运营商可通过power_mgmt_init()（provision.py --duty-cycle <N>）重新启用调制解调器睡眠模式，
+该函数在上述操作后运行并重新激活调制解调器睡眠。
+     */
     esp_err_t ps_err = esp_wifi_set_ps(WIFI_PS_NONE);
     if (ps_err != ESP_OK) {
-        ESP_LOGW(TAG, "esp_wifi_set_ps(WIFI_PS_NONE) failed: %s — CSI yield may be low",
+        ESP_LOGW(TAG, "esp_wifi_set_ps(WIFI_PS_NONE) failed: %s — CSI产量可能较低",
                  esp_err_to_name(ps_err));
     } else {
-        ESP_LOGI(TAG, "WiFi modem sleep disabled (WIFI_PS_NONE) for CSI capture");
+        ESP_LOGI(TAG, "WiFi调制解调器睡眠禁用（WIFI_PS_NONE）用于CSI捕获");
     }
 
     /* Enable promiscuous mode — required for reliable CSI callbacks.
      * Without this, CSI only fires on frames destined to this station,
-     * which may be very infrequent on a quiet network. */
+     * which may be very infrequent on a quiet network.
+     启用混杂模式——这是可靠 CSI 回调所必需的。 如果不启用此模式，CSI 仅在发送至该站的帧上触发， 在安静的网络中这可能非常罕见。 */
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(wifi_promiscuous_cb));
 
@@ -584,17 +623,25 @@ void csi_collector_init(void)
      * in wDev_ProcessFiq (SPI flash cache race in ESP-IDF WiFi blob).
      * MGMT-only gives ~10 Hz (beacons). Probe request injection at 10 Hz
      * adds ~10 Hz probe responses from APs → ~20 Hz total, matching the
-     * edge processing designed sample rate of 20 Hz. */
+     * edge processing designed sample rate of 20 Hz.
+
+     仅限管理的混杂过滤器 + 活动探针注入（RuView#396）。
+* 数据帧导致每秒产生100-500+次WiFi硬件中断，从而崩溃核心0  
+* 在wDev_ProcessFiq中（ESP-IDF WiFi blob中的SPI闪存缓存竞态）  
+* 仅MGMT模式下为约10 Hz（信标信号），在10 Hz时注入探测请求  
+* 从接入点接收约10 Hz的探测响应 → 总计约20 Hz，与边缘处理设计的采样率20 Hz相匹配*/
     wifi_promiscuous_filter_t filt = {
         .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT,
     };
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous_filter(&filt));
 
-    ESP_LOGI(TAG, "Promiscuous mode enabled (MGMT-only, RuView#396)");
+    ESP_LOGI(TAG, "启用混杂模式（MGMT-only, ruview# 396）");
 
 #if CONFIG_SOC_WIFI_HE_SUPPORT
     /* Wi-Fi 6 targets (e.g. ESP32-C6): wifi_csi_config_t is wifi_csi_acquire_config_t
-     * (bitfields), not the legacy 802.11n bool layout used on ESP32-S3. */
+     * (bitfields), not the legacy 802.11n bool layout used on ESP32-S3. 
+     Wi-Fi 6 目标（例如 ESP32-C6）：wifi_csi_config_t 是 wifi_csi_acquire_config_t 的位字段形式，而非 ESP32-S3 上使用的传统 802.11n 布尔布局。
+     */
     wifi_csi_config_t csi_config;
     memset(&csi_config, 0, sizeof(csi_config));
     csi_config.enable = 1U;
@@ -617,35 +664,38 @@ void csi_collector_init(void)
     csi_config.dump_ack_en = 0U;
 #else
     wifi_csi_config_t csi_config = {
-        .lltf_en = true,
-        .htltf_en = true,
-        .stbc_htltf2_en = true,
-        .ltf_merge_en = true,
-        .channel_filter_en = false,
-        .manu_scale = false,
-        .shift = false,
+        .lltf_en = true,  // 启用LLTF
+        .htltf_en = true,  // 启用HTLTFS
+        .stbc_htltf2_en = true,  // 启用STBC-HELTFS
+        .ltf_merge_en = true,  // 启用LLTF合并
+        .channel_filter_en = false,  // 禁用通道过滤
+        .manu_scale = false,  // 禁用手动缩放
+        .shift = false,  // 禁用通道偏移
     };
 #endif
 
     ESP_ERROR_CHECK(esp_wifi_set_csi_config(&csi_config));
     ESP_ERROR_CHECK(esp_wifi_set_csi_rx_cb(wifi_csi_callback, NULL));
     ESP_ERROR_CHECK(esp_wifi_set_csi(true));
+    ESP_LOGI(TAG, "启用CSI捕获");
 
     if (g_nvs_config.filter_mac_set) {
-        ESP_LOGI(TAG, "MAC filter active: %02x:%02x:%02x:%02x:%02x:%02x",
+        ESP_LOGI(TAG, "MAC过滤器已启用: %02x:%02x:%02x:%02x:%02x:%02x",
                  g_nvs_config.filter_mac[0], g_nvs_config.filter_mac[1],
                  g_nvs_config.filter_mac[2], g_nvs_config.filter_mac[3],
                  g_nvs_config.filter_mac[4], g_nvs_config.filter_mac[5]);
     }
 
-    ESP_LOGI(TAG, "CSI collection initialized (node_id=%u, channel=%u)",
+    ESP_LOGI(TAG, "CSI捕获初始化 (node_id=%u, channel=%u)",
              (unsigned)s_node_id, (unsigned)csi_channel);
-    ESP_LOGI(TAG, "edge DSP cadence=%dHz; raw CSI network cadence remains independent",
+    ESP_LOGI(TAG, "边缘 DSP采样率=%dHz;原始 CSI 网络采样率独立于边缘",
              CONFIG_EDGE_DSP_SAMPLE_HZ);
 
     /* RuView#521/#954: start the connected-STA traffic source so the CSI engine
      * receives a guaranteed OFDM unicast floor even when promiscuous capture is
-     * starved (display builds / quiet networks). Additive to #396/#893. */
+     * starved (display builds / quiet networks). Additive to #396/#893. 
+      RuView#521/#954：启动连接的STA流量源，以便CSI引擎即使在混杂捕获资源不足（如显示构建/静默网络）的情况下，也能接收到保证的OFDM单播信道。
+      此修复为对#396/#893的补充*/
     csi_start_self_ping();
 }
 

@@ -37,6 +37,34 @@ ADDITIVE-BY-DEFAULT (issue #391, #574 phase 1):
     you want to keep on that invocation, or pre-seed the state file. A future
     follow-up will add USB-CDC NVS dump for true device-authoritative merging
     (tracked in #574).
+
+    ESP32 CSI 节点配置（适用于 ESP32-S3、ESP32-C6 及其他目标）。
+
+将 WiFi 认证信息和聚合目标写入 ESP32 的 NVS 分区，以便用户无需重新编译即可配置预构建的固件二进制文件。
+
+用途：
+python provision.py --port COM7 --ssid "MyWiFi" --password "secret" --target-ip 192.168.1.20  
+python provision.py --port /dev/ttyUSB0 --chip esp32c6 --ssid "..."\\
+--password "..." --target-ip 192.168.1.20
+
+要求：
+pip install 'esptool>=5.0' nvs-partition-gen
+（或使用 ESP-IDF 包含的 nvs_partition_gen.py）
+
+默认添加功能（问题 #391、#574 第一阶段）：
+早期版本的脚本每次调用都会替换设备上的整个 `csi_cfg` NVS 命名空间，清除 CLI 中未传递的任何键值。
+这给用户带来了数小时不必要的麻烦。
+
+现在该脚本会将新的 CLI 参数与之前从本机保存的端口状态进行合并（这些状态存储在您的用户配置目录中；请参见 `--state-dir` 来覆盖设置，或使用 `--state` 检查）。每次调用时：
+
+1. 读取先前的按端口状态文件（如果不存在则视为为空）。
+2. 将新的 CLI 标志叠加在上方。
+3. 从合并状态生成并闪存NVS。
+4. 将合并后的状态写回状态文件。
+
+效果：部分重新配置能够按用户预期的方式工作。首次为回收板进行配置时，使用 `--reset` 可以同时清除状态文件和设备的 NVS。
+
+注意事项：状态保存在控制机器上。从第二台机器对同一设备进行配置时，会从一个空状态开始——请在该调用中传递希望保留的密钥，或预先填充状态文件。后续版本将添加 USB-CDC NVS 汇出功能，实现真正的设备权威合并（问题 #574 已跟踪）。
 """
 
 import argparse
@@ -100,6 +128,15 @@ def has_config_value(args):
 
 # argparse attribute names that participate in the merge. Order doesn't
 # matter; this is just the surface area to round-trip.
+
+# ---------------------------------------------------------------------------
+# 按端口状态文件（默认采用加法合并，#391 / #574）
+# ---------------------------------------------------------------------------
+#
+# 状态文件以 `args` 属性名称作为 JSON 键，记录了本机之前写入指定串行端口的每个配置值。
+# 下次调用时，缺失的命令行参数将回退到已存储的值。
+
+# 参与合并的 argparse 属性名称。顺序无关紧要；这仅用于往返传输的表面处理。
 MERGEABLE_ATTRS = [
     "ssid", "password", "target_ip", "target_port", "node_id",
     "tdm_slot", "tdm_total",
@@ -112,7 +149,10 @@ MERGEABLE_ATTRS = [
 
 
 def _default_state_dir() -> str:
-    """Per-user config dir for provision-state JSON files."""
+    """
+        Per-user config dir for provision-state JSON files.
+        用户配置目录，用于存放预置状态的JSON文件
+    """
     env = os.environ
     if sys.platform == "win32":
         base = env.get("APPDATA") or os.path.expanduser("~")
@@ -124,7 +164,8 @@ def _default_state_dir() -> str:
 
 
 def _state_path_for(port: str, state_dir: str) -> str:
-    """File path for a given serial port. Sanitize the port for filesystem use."""
+    """File path for a given serial port. Sanitize the port for filesystem use.
+    指定串行端口的文件路径。对端口进行清理，以便用于文件系统"""
     safe = port.replace("/", "_").replace(":", "_").replace("\\", "_")
     return os.path.join(state_dir, f"{safe}.json")
 

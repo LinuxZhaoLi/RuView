@@ -165,12 +165,15 @@ static const rv_radio_ops_t s_esp32_ops = {
     .set_capture_profile  = esp32_set_capture_profile,
     .get_health           = esp32_get_health,
 };
-
+/**
+ * @brief 注册ESP32 radio ops
+ * @details 注册ESP32 radio ops到rv_radio_ops_register()
+*/
 void rv_radio_ops_esp32_register(void)
 {
     if (s_active_ops == &s_esp32_ops) {
         return;  /* idempotent */
     }
     rv_radio_ops_register(&s_esp32_ops);
-    ESP_LOGI(TAG, "ESP32 radio ops registered as active binding");
+    ESP_LOGI(TAG, "ESP32 无线电操作已注册为活动绑定.");
 }

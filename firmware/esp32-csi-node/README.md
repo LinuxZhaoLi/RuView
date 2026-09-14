@@ -1,23 +1,31 @@
 # ESP32 CSI Node Firmware
 
+**$env:PATH="D:\ESP\Espressif\python_env\idf5.5_py3.9_env\Scripts;"+$env:PATH**
+
+**D:\ESP\esp-idf-v5.5.5\export.ps1**
+
+**idf.py build && idf.py flash && idf.py monitor**
+
+**idf.py build; if ($LASTEXITCODE -eq 0) {idf.py -p COM3 flash; if ($LASTEXITCODE -eq 0) {idf.py -p COM3 monitor}}**
+
 **Turn a $7 microcontroller into a privacy-first human sensing node.**
 
 This firmware captures WiFi Channel State Information (CSI) from an ESP32-S3 (production) or ESP32-C6 (research target — Wi-Fi 6 / 802.15.4 / TWT / LP-core hibernation, see [ADR-110](../../docs/adr/ADR-110-esp32-c6-firmware-extension.md)) and transforms it into real-time presence detection, vital sign monitoring, and programmable sensing -- all without cameras or wearables. Part of the [WiFi-DensePose](../../README.md) project.
 
 [![ESP-IDF v5.4](https://img.shields.io/badge/ESP--IDF-v5.4-blue.svg)](https://docs.espressif.com/projects/esp-idf/en/v5.4/)
-[![Target: ESP32-S3 / ESP32-C6](https://img.shields.io/badge/target-ESP32--S3%20%7C%20ESP32--C6-purple.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
-[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green.svg)](../../LICENSE)
-[![Binary: up to 1.1 MB](https://img.shields.io/badge/binary-up%20to%201.1%20MB-orange.svg)](#memory-budget)
-[![CI: Docker Build](https://img.shields.io/badge/CI-Docker%20Build-brightgreen.svg)](../../.github/workflows/firmware-ci.yml)
+[![Target: ESP32-S3 / ESP32-C6](<https://img.shields.io/badge/target-ESP32--S3%20%7C%20ESP32--C6-purple.svg>)](https://www.espressif.com/en/products/socs/esp32-s3)
+[![License: MIT OR Apache-2.0](<https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green.svg>)](../../LICENSE)
+[![Binary: up to 1.1 MB](<https://img.shields.io/badge/binary-up%20to%201.1%20MB-orange.svg>)](#memory-budget)
+[![CI: Docker Build](<https://img.shields.io/badge/CI-Docker%20Build-brightgreen.svg>)](../../.github/workflows/firmware-ci.yml)
 
-> | Capability | Method | Current contract |
-> |------------|--------|------------------|
-> | **CSI streaming** | Per-subcarrier I/Q capture over UDP | Radio-dependent cadence with a 20 packets-per-second hardware acceptance floor, ADR-018 binary format |
-> | **Breathing estimate** | Bandpass 0.1-0.5 Hz, zero-crossing BPM | Experimental 6-30 BPM output; calibrate against a reference before use |
-> | **Heart-rate estimate** | Bandpass 0.8-2.0 Hz, zero-crossing BPM | Experimental 40-120 BPM output; not a medical measurement |
-> | **Presence indicator** (heuristic) | Phase variance + adaptive threshold (60 s ambient learning) | Fast local indicator; strong RF interference can cause false positives — see [Tier 2 caveats](#what-this-firmware-does-not-do-tier-2-caveats) |
-> | **Fall detection** | Phase acceleration threshold | Configurable sensitivity |
-> | **Programmable sensing** | WASM modules loaded over HTTP | Hot-swap, no reflash |
+> | Capability                               | Method                                                      | Current contract                                                                                                                             |
+> | ---------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+> | **CSI streaming**                  | Per-subcarrier I/Q capture over UDP                         | Radio-dependent cadence with a 20 packets-per-second hardware acceptance floor, ADR-018 binary format                                        |
+> | **Breathing estimate**             | Bandpass 0.1-0.5 Hz, zero-crossing BPM                      | Experimental 6-30 BPM output; calibrate against a reference before use                                                                       |
+> | **Heart-rate estimate**            | Bandpass 0.8-2.0 Hz, zero-crossing BPM                      | Experimental 40-120 BPM output; not a medical measurement                                                                                    |
+> | **Presence indicator** (heuristic) | Phase variance + adaptive threshold (60 s ambient learning) | Fast local indicator; strong RF interference can cause false positives — see[Tier 2 caveats](#what-this-firmware-does-not-do-tier-2-caveats) |
+> | **Fall detection**                 | Phase acceleration threshold                                | Configurable sensitivity                                                                                                                     |
+> | **Programmable sensing**           | WASM modules loaded over HTTP                               | Hot-swap, no reflash                                                                                                                         |
 
 ## Firmware 0.8.8 in plain language
 
@@ -54,10 +62,10 @@ Use the versioned source tag and binaries on the
 [v0.8.8 ESP32 release page](https://github.com/ruvnet/RuView/releases/tag/v0.8.8-esp32).
 Choose the package that names both your chip and flash size:
 
-| Package | Use it for |
-|---------|------------|
-| `esp32-csi-node-v0.8.8-s3-8mb-flash-bundle.zip` | Fresh ESP32-S3 installation with 8 MB flash |
-| `esp32-csi-node-v0.8.8-s3-4mb-flash-bundle.zip` | Fresh ESP32-S3 installation with 4 MB flash |
+| Package                                           | Use it for                                                  |
+| ------------------------------------------------- | ----------------------------------------------------------- |
+| `esp32-csi-node-v0.8.8-s3-8mb-flash-bundle.zip` | Fresh ESP32-S3 installation with 8 MB flash                 |
+| `esp32-csi-node-v0.8.8-s3-4mb-flash-bundle.zip` | Fresh ESP32-S3 installation with 4 MB flash                 |
 | `esp32-csi-node-v0.8.8-c6-4mb-flash-bundle.zip` | Fresh ESP32-C6 installation using the supported 4 MB layout |
 
 Each bundle contains the matching bootloader, partition table, OTA metadata,
@@ -126,6 +134,8 @@ python firmware/esp32-csi-node/provision.py --port COM7 \
 
 ```bash
 cargo run -p wifi-densepose-sensing-server -- --http-port 3000 --source auto
+
+cargo run -p wifi-densepose-sensing-server -- --bind-addr 0.0.0.0 --http-port 3000 --ws-port 3001 --source auto --disable-host-validation
 ```
 
 ### 5. Open the UI
@@ -143,14 +153,14 @@ curl http://<ESP32_IP>:8032/wasm/list
 
 ## Hardware Requirements
 
-| Component | Specification | Notes |
-|-----------|---------------|-------|
-| **SoC** | ESP32-S3 (QFN56) | Dual-core Xtensa LX7, 240 MHz |
-| **Flash** | 8 MB | ~943 KB used by firmware |
-| **PSRAM** | 8 MB | 640 KB used for WASM arenas |
-| **USB bridge** | Silicon Labs CP210x | Install the [CP210x driver](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) |
-| **Recommended boards** | ESP32-S3-DevKitC-1, XIAO ESP32-S3 | Any ESP32-S3 with 8 MB flash works |
-| **Deployment** | 3-6 nodes per room | Multistatic mesh for 360-degree coverage |
+| Component                    | Specification                     | Notes                                                                                       |
+| ---------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
+| **SoC**                | ESP32-S3 (QFN56)                  | Dual-core Xtensa LX7, 240 MHz                                                               |
+| **Flash**              | 8 MB                              | ~943 KB used by firmware                                                                    |
+| **PSRAM**              | 8 MB                              | 640 KB used for WASM arenas                                                                 |
+| **USB bridge**         | Silicon Labs CP210x               | Install the[CP210x driver](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) |
+| **Recommended boards** | ESP32-S3-DevKitC-1, XIAO ESP32-S3 | Any ESP32-S3 with 8 MB flash works                                                          |
+| **Deployment**         | 3-6 nodes per room                | Multistatic mesh for 360-degree coverage                                                    |
 
 > **Tip:** A single node is mainly useful for presence and motion along one RF link. Three or more spatially separated links improve geometry and track separation. Location, pose, and multi-person accuracy still require room-specific calibration and held-out ground-truth evaluation.
 
@@ -239,11 +249,11 @@ See the [WASM Programmable Sensing](#wasm-programmable-sensing-tier-3) section f
 
 All packets are sent over UDP to the configured aggregator. The magic number in the first 4 bytes identifies the packet type.
 
-| Magic | Name | Rate | Size | Contents |
-|-------|------|------|------|----------|
-| `0xC5110001` | CSI Frame (ADR-018) | ~20 Hz | Variable | Raw I/Q per subcarrier per antenna |
-| `0xC5110002` | Vitals Packet | 1 Hz | 32 bytes | Presence, breathing BPM, heart rate, fall flag, occupancy |
-| `0xC5110004` | WASM Output | Event-driven | Variable | Custom events from WASM modules (u8 type + f32 value) |
+| Magic          | Name                | Rate         | Size     | Contents                                                  |
+| -------------- | ------------------- | ------------ | -------- | --------------------------------------------------------- |
+| `0xC5110001` | CSI Frame (ADR-018) | ~20 Hz       | Variable | Raw I/Q per subcarrier per antenna                        |
+| `0xC5110002` | Vitals Packet       | 1 Hz         | 32 bytes | Presence, breathing BPM, heart rate, fall flag, occupancy |
+| `0xC5110004` | WASM Output         | Event-driven | Variable | Custom events from WASM modules (u8 type + f32 value)     |
 
 ### ADR-018 Binary Frame Format
 
@@ -285,13 +295,13 @@ Offset  Size  Field
 
 ### Prerequisites
 
-| Component | Version | Purpose |
-|-----------|---------|---------|
-| Docker Desktop | 28.x+ | Cross-compile firmware in ESP-IDF container |
-| esptool | 5.x+ | Flash firmware to ESP32 (`pip install esptool`) |
-| Python 3.10+ | 3.10+ | Provisioning script, serial monitor |
-| ESP32-S3 board | -- | Target hardware |
-| CP210x driver | -- | USB-UART bridge driver ([download](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers)) |
+| Component      | Version | Purpose                                                                                              |
+| -------------- | ------- | ---------------------------------------------------------------------------------------------------- |
+| Docker Desktop | 28.x+   | Cross-compile firmware in ESP-IDF container                                                          |
+| esptool        | 5.x+    | Flash firmware to ESP32 (`pip install esptool`)                                                    |
+| Python 3.10+   | 3.10+   | Provisioning script, serial monitor                                                                  |
+| ESP32-S3 board | --      | Target hardware                                                                                      |
+| CP210x driver  | --      | USB-UART bridge driver ([download](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers)) |
 
 > **Why Docker?** ESP-IDF does NOT work from Git Bash/MSYS2 on Windows. The `idf.py` script detects the `MSYSTEM` environment variable and skips `main()`. Even removing `MSYSTEM`, the `cmd.exe` subprocess injects `doskey` aliases that break the ninja linker. Docker is the only reliable cross-platform build method.
 
@@ -308,6 +318,7 @@ MSYS_NO_PATHCONV=1 docker run --rm \
 The `MSYS_NO_PATHCONV=1` prefix prevents Git Bash from mangling the `/project` path to `C:/Program Files/Git/project`.
 
 **Build output:**
+
 - `build/bootloader/bootloader.bin` -- second-stage bootloader
 - `build/partition_table/partition-table.bin` -- flash partition layout
 - `build/esp32-csi-node.bin` -- application firmware
@@ -390,42 +401,42 @@ python firmware/esp32-csi-node/provision.py --port COM7 \
 
 #### Network Settings
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `ssid` | string | `wifi-densepose` | WiFi SSID |
-| `password` | string | *(empty)* | WiFi password |
-| `target_ip` | string | `192.168.1.100` | Aggregator server IP address |
-| `target_port` | u16 | `5005` | Aggregator UDP port |
-| `node_id` | u8 | `1` | Unique node identifier (0-255) |
+| Key             | Type   | Default            | Description                                  |
+| --------------- | ------ | ------------------ | -------------------------------------------- |
+| `ssid`        | string | `wifi-densepose` | WiFi SSID                                    |
+| `password`    | string | *(empty)*        | WiFi password                                |
+| `target_ip`   | string | `192.168.1.100`  | Aggregator server IP address                 |
+| `target_port` | u16    | `5005`           | Aggregator UDP port                          |
+| `node_id`     | u8     | `1`              | Unique node identifier 节点唯一标识符(0-255) |
 
 #### Channel Hopping and TDM (ADR-029)
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `hop_count` | u8 | `1` | Number of channels to hop (1 = single-channel mode) |
-| `chan_list` | blob | `[6]` | WiFi channel numbers for hopping |
-| `dwell_ms` | u32 | `50` | Dwell time per channel in milliseconds |
-| `tdm_slot` | u8 | `0` | This node's TDM slot index (0-based) |
-| `tdm_nodes` | u8 | `1` | Total number of nodes in the TDM schedule |
+| Key           | Type | Default | Description                                         |
+| ------------- | ---- | ------- | --------------------------------------------------- |
+| `hop_count` | u8   | `1`   | Number of channels to hop (1 = single-channel mode) |
+| `chan_list` | blob | `[6]` | WiFi channel numbers for hopping                    |
+| `dwell_ms`  | u32  | `50`  | Dwell time per channel in milliseconds              |
+| `tdm_slot`  | u8   | `0`   | This node's TDM slot index (0-based)                |
+| `tdm_nodes` | u8   | `1`   | Total number of nodes in the TDM schedule           |
 
 #### Edge Intelligence (ADR-039)
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `edge_tier` | u8 | `2` | Processing tier: 0=raw, 1=basic DSP, 2=full pipeline |
-| `pres_thresh` | u16 | *auto* | Presence threshold (x1000). 0 = auto-calibrate from 60 s ambient |
-| `fall_thresh` | u16 | `2000` | Fall detection threshold (x1000). 2000 = 2.0 rad/s^2 |
-| `vital_win` | u16 | `256` | Phase history window depth (frames) |
-| `vital_int` | u16 | `1000` | Vitals packet send interval (ms) |
-| `subk_count` | u8 | `8` | Top-K subcarrier count for variance tracking |
-| `power_duty` | u8 | `100` | Power duty cycle percentage (10-100). 100 = always on |
+| Key             | Type | Default  | Description                                                      |
+| --------------- | ---- | -------- | ---------------------------------------------------------------- |
+| `edge_tier`   | u8   | `2`    | Processing tier: 0=raw, 1=basic DSP, 2=full pipeline             |
+| `pres_thresh` | u16  | *auto* | Presence threshold (x1000). 0 = auto-calibrate from 60 s ambient |
+| `fall_thresh` | u16  | `2000` | Fall detection threshold (x1000). 2000 = 2.0 rad/s^2             |
+| `vital_win`   | u16  | `256`  | Phase history window depth (frames)                              |
+| `vital_int`   | u16  | `1000` | Vitals packet send interval (ms)                                 |
+| `subk_count`  | u8   | `8`    | Top-K subcarrier count for variance tracking                     |
+| `power_duty`  | u8   | `100`  | Power duty cycle percentage (10-100). 100 = always on            |
 
 #### WASM Programmable Sensing (ADR-040)
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `wasm_max` | u8 | `4` | Maximum concurrent WASM module slots (1-8) |
-| `wasm_verify` | u8 | `1` | Require Ed25519 signature verification for uploads |
+| Key             | Type | Default | Description                                        |
+| --------------- | ---- | ------- | -------------------------------------------------- |
+| `wasm_max`    | u8   | `4`   | Maximum concurrent WASM module slots (1-8)         |
+| `wasm_verify` | u8   | `1`   | Require Ed25519 signature verification for uploads |
 
 ---
 
@@ -470,62 +481,62 @@ RVF is a signed container that wraps a WASM binary with metadata for tamper dete
 
 **Total overhead:** 192 bytes (32-byte header + 96-byte manifest + 64-byte signature).
 
-| Field | Size | Contents |
-|-------|------|----------|
-| **Header** | 32 bytes | Magic (`RVF\x01`), format version, section sizes, flags |
-| **Manifest** | 96 bytes | Module name, author, capabilities bitmask, budget request, SHA-256 build hash, event schema version |
-| **WASM payload** | Variable | The compiled `.wasm` binary (max 128 KB) |
-| **Signature** | 64 bytes | Ed25519 signature covering header + manifest + WASM |
+| Field                  | Size     | Contents                                                                                            |
+| ---------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| **Header**       | 32 bytes | Magic (`RVF\x01`), format version, section sizes, flags                                           |
+| **Manifest**     | 96 bytes | Module name, author, capabilities bitmask, budget request, SHA-256 build hash, event schema version |
+| **WASM payload** | Variable | The compiled`.wasm` binary (max 128 KB)                                                           |
+| **Signature**    | 64 bytes | Ed25519 signature covering header + manifest + WASM                                                 |
 
 ### Host API
 
 WASM modules import functions from the `"csi"` namespace to access sensor data:
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `csi_get_phase` | `(i32) -> f32` | Phase (radians) for subcarrier index |
-| `csi_get_amplitude` | `(i32) -> f32` | Amplitude for subcarrier index |
-| `csi_get_variance` | `(i32) -> f32` | Running variance (Welford) for subcarrier |
-| `csi_get_bpm_breathing` | `() -> f32` | Breathing rate BPM from Tier 2 |
-| `csi_get_bpm_heartrate` | `() -> f32` | Heart rate BPM from Tier 2 |
-| `csi_get_presence` | `() -> i32` | Presence flag (0 = empty, 1 = present) |
-| `csi_get_motion_energy` | `() -> f32` | Motion energy scalar |
-| `csi_get_n_persons` | `() -> i32` | Number of detected persons |
-| `csi_get_timestamp` | `() -> i32` | Milliseconds since boot |
-| `csi_emit_event` | `(i32, f32)` | Emit a typed event to the host (sent over UDP) |
-| `csi_log` | `(i32, i32)` | Debug log from WASM (pointer + length) |
-| `csi_get_phase_history` | `(i32, i32) -> i32` | Copy phase ring buffer into WASM memory |
+| Function                  | Signature             | Description                                    |
+| ------------------------- | --------------------- | ---------------------------------------------- |
+| `csi_get_phase`         | `(i32) -> f32`      | Phase (radians) for subcarrier index           |
+| `csi_get_amplitude`     | `(i32) -> f32`      | Amplitude for subcarrier index                 |
+| `csi_get_variance`      | `(i32) -> f32`      | Running variance (Welford) for subcarrier      |
+| `csi_get_bpm_breathing` | `() -> f32`         | Breathing rate BPM from Tier 2                 |
+| `csi_get_bpm_heartrate` | `() -> f32`         | Heart rate BPM from Tier 2                     |
+| `csi_get_presence`      | `() -> i32`         | Presence flag (0 = empty, 1 = present)         |
+| `csi_get_motion_energy` | `() -> f32`         | Motion energy scalar                           |
+| `csi_get_n_persons`     | `() -> i32`         | Number of detected persons                     |
+| `csi_get_timestamp`     | `() -> i32`         | Milliseconds since boot                        |
+| `csi_emit_event`        | `(i32, f32)`        | Emit a typed event to the host (sent over UDP) |
+| `csi_log`               | `(i32, i32)`        | Debug log from WASM (pointer + length)         |
+| `csi_get_phase_history` | `(i32, i32) -> i32` | Copy phase ring buffer into WASM memory        |
 
 ### Module Lifecycle
 
 Every WASM module must export these three functions:
 
-| Export | Called | Purpose |
-|--------|--------|---------|
-| `on_init()` | Once, when started | Allocate state, initialize algorithms |
-| `on_frame(n_subcarriers: i32)` | Per CSI frame (~20 Hz) | Process sensor data, emit events |
-| `on_timer()` | At configurable interval (default 1 s) | Periodic housekeeping, aggregated output |
+| Export                           | Called                                 | Purpose                                  |
+| -------------------------------- | -------------------------------------- | ---------------------------------------- |
+| `on_init()`                    | Once, when started                     | Allocate state, initialize algorithms    |
+| `on_frame(n_subcarriers: i32)` | Per CSI frame (~20 Hz)                 | Process sensor data, emit events         |
+| `on_timer()`                   | At configurable interval (default 1 s) | Periodic housekeeping, aggregated output |
 
 ### HTTP Management Endpoints
 
 All endpoints are served on **port 8032** (shared with the OTA update server).
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/wasm/upload` | Upload an RVF container or raw `.wasm` binary (max 128 KB) |
-| `GET` | `/wasm/list` | List all module slots with state, telemetry, and RVF metadata |
-| `POST` | `/wasm/start/:id` | Start a loaded module (calls `on_init`) |
-| `POST` | `/wasm/stop/:id` | Stop a running module |
-| `DELETE` | `/wasm/:id` | Unload a module and free its PSRAM arena |
+| Method     | Path                | Description                                                   |
+| ---------- | ------------------- | ------------------------------------------------------------- |
+| `POST`   | `/wasm/upload`    | Upload an RVF container or raw`.wasm` binary (max 128 KB)   |
+| `GET`    | `/wasm/list`      | List all module slots with state, telemetry, and RVF metadata |
+| `POST`   | `/wasm/start/:id` | Start a loaded module (calls`on_init`)                      |
+| `POST`   | `/wasm/stop/:id`  | Stop a running module                                         |
+| `DELETE` | `/wasm/:id`       | Unload a module and free its PSRAM arena                      |
 
 ### Included WASM Modules
 
 The `wifi-densepose-wasm-edge` Rust crate provides three flagship modules:
 
-| Module | File | Description |
-|--------|------|-------------|
-| **gesture** | `gesture.rs` | DTW template matching for wave, push, pull, and swipe gestures |
-| **coherence** | `coherence.rs` | Phase phasor coherence monitoring with hysteresis gate |
+| Module                | File               | Description                                                      |
+| --------------------- | ------------------ | ---------------------------------------------------------------- |
+| **gesture**     | `gesture.rs`     | DTW template matching for wave, push, pull, and swipe gestures   |
+| **coherence**   | `coherence.rs`   | Phase phasor coherence monitoring with hysteresis gate           |
 | **adversarial** | `adversarial.rs` | Signal anomaly detection (phase jumps, flatlines, energy spikes) |
 
 Build all modules:
@@ -536,27 +547,27 @@ cargo build -p wifi-densepose-wasm-edge --target wasm32-unknown-unknown --releas
 
 ### Safety Features
 
-| Protection | Detail |
-|------------|--------|
-| **Memory isolation** | Fixed 160 KB PSRAM arenas per slot (no heap fragmentation) |
-| **Budget guard** | 10 ms per-frame default; auto-stop after 10 consecutive budget faults |
-| **Signature verification** | Ed25519 enabled by default; disable with `wasm_verify=0` in NVS for development |
-| **Hash verification** | SHA-256 of WASM payload checked against RVF manifest |
-| **Slot limit** | Maximum 4 concurrent module slots (configurable to 8) |
-| **Per-module telemetry** | Frame count, event count, mean/max execution time, budget faults |
+| Protection                       | Detail                                                                           |
+| -------------------------------- | -------------------------------------------------------------------------------- |
+| **Memory isolation**       | Fixed 160 KB PSRAM arenas per slot (no heap fragmentation)                       |
+| **Budget guard**           | 10 ms per-frame default; auto-stop after 10 consecutive budget faults            |
+| **Signature verification** | Ed25519 enabled by default; disable with`wasm_verify=0` in NVS for development |
+| **Hash verification**      | SHA-256 of WASM payload checked against RVF manifest                             |
+| **Slot limit**             | Maximum 4 concurrent module slots (configurable to 8)                            |
+| **Per-module telemetry**   | Frame count, event count, mean/max execution time, budget faults                 |
 
 ---
 
 ## Memory Budget
 
-| Component | SRAM | PSRAM | Flash |
-|-----------|------|-------|-------|
-| Base firmware (Tier 0) | ~12 KB | -- | ~820 KB |
-| Tier 1-2 DSP pipeline | ~10 KB | -- | ~33 KB |
-| WASM3 interpreter | ~10 KB | -- | ~100 KB |
-| WASM arenas (x4 slots) | -- | 640 KB | -- |
-| Host API + HTTP upload | ~3 KB | -- | ~23 KB |
-| **Total** | **~35 KB** | **640 KB** | **~943 KB** |
+| Component              | SRAM             | PSRAM            | Flash             |
+| ---------------------- | ---------------- | ---------------- | ----------------- |
+| Base firmware (Tier 0) | ~12 KB           | --               | ~820 KB           |
+| Tier 1-2 DSP pipeline  | ~10 KB           | --               | ~33 KB            |
+| WASM3 interpreter      | ~10 KB           | --               | ~100 KB           |
+| WASM arenas (x4 slots) | --               | 640 KB           | --                |
+| Host API + HTTP upload | ~3 KB            | --               | ~23 KB            |
+| **Total**        | **~35 KB** | **640 KB** | **~943 KB** |
 
 - **PSRAM remaining:** 7.36 MB (available for future use)
 - **Flash partition:** 1 MB OTA slot (6% headroom at current binary size)
@@ -566,19 +577,19 @@ cargo build -p wifi-densepose-wasm-edge --target wasm32-unknown-unknown --releas
 
 ## Source Files
 
-| File | Description |
-|------|-------------|
-| `main/main.c` | Application entry point: NVS init, WiFi STA, CSI collector, edge pipeline, OTA server, WASM runtime init |
-| `main/csi_collector.c` / `.h` | WiFi CSI frame capture, ADR-018 binary serialization, channel hopping, NDP injection |
-| `main/stream_sender.c` / `.h` | UDP socket management and packet transmission to aggregator |
-| `main/nvs_config.c` / `.h` | Runtime configuration: loads Kconfig defaults, overrides from NVS |
+| File                                | Description                                                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `main/main.c`                     | Application entry point: NVS init, WiFi STA, CSI collector, edge pipeline, OTA server, WASM runtime init             |
+| `main/csi_collector.c` / `.h`   | WiFi CSI frame capture, ADR-018 binary serialization, channel hopping, NDP injection                                 |
+| `main/stream_sender.c` / `.h`   | UDP socket management and packet transmission to aggregator                                                          |
+| `main/nvs_config.c` / `.h`      | Runtime configuration: loads Kconfig defaults, overrides from NVS                                                    |
 | `main/edge_processing.c` / `.h` | Tier 0-2 DSP pipeline: SPSC ring buffer, biquad IIR filters, Welford stats, BPM extraction, presence, fall detection |
-| `main/ota_update.c` / `.h` | HTTP OTA firmware update server on port 8032 |
-| `main/power_mgmt.c` / `.h` | Battery-aware light sleep duty cycling |
-| `main/wasm_runtime.c` / `.h` | WASM3 interpreter: module slots, host API bindings, budget guard, per-frame dispatch |
-| `main/wasm_upload.c` / `.h` | HTTP endpoints for WASM module upload, list, start, stop, delete |
-| `main/rvf_parser.c` / `.h` | RVF container parser: header validation, manifest extraction, SHA-256 hash verification |
-| `components/wasm3/` | WASM3 interpreter library (MIT license, ~100 KB flash, ~10 KB RAM) |
+| `main/ota_update.c` / `.h`      | HTTP OTA firmware update server on port 8032                                                                         |
+| `main/power_mgmt.c` / `.h`      | Battery-aware light sleep duty cycling                                                                               |
+| `main/wasm_runtime.c` / `.h`    | WASM3 interpreter: module slots, host API bindings, budget guard, per-frame dispatch                                 |
+| `main/wasm_upload.c` / `.h`     | HTTP endpoints for WASM module upload, list, start, stop, delete                                                     |
+| `main/rvf_parser.c` / `.h`      | RVF container parser: header validation, manifest extraction, SHA-256 hash verification                              |
+| `components/wasm3/`               | WASM3 interpreter library (MIT license, ~100 KB flash, ~10 KB RAM)                                                   |
 
 ---
 
@@ -609,12 +620,12 @@ ESP32-S3 Node                                 Host Machine
 
 The firmware is continuously verified by [`.github/workflows/firmware-ci.yml`](../../.github/workflows/firmware-ci.yml):
 
-| Step | Check | Threshold |
-|------|-------|-----------|
-| **Docker build** | Full compile with ESP-IDF v5.4 container | Must succeed |
-| **Binary size gate** | `esp32-csi-node.bin` file size | Must be < 950 KB |
+| Step                            | Check                                                           | Threshold           |
+| ------------------------------- | --------------------------------------------------------------- | ------------------- |
+| **Docker build**          | Full compile with ESP-IDF v5.4 container                        | Must succeed        |
+| **Binary size gate**      | `esp32-csi-node.bin` file size                                | Must be < 950 KB    |
 | **Flash image integrity** | Partition table magic, bootloader presence, non-padding content | Warnings on failure |
-| **Artifact upload** | Bootloader + partition table + app binary | 30-day retention |
+| **Artifact upload**       | Bootloader + partition table + app binary                       | 30-day retention    |
 
 ---
 
@@ -664,39 +675,39 @@ The firmware boots FreeRTOS, loads NVS config, starts the mock CSI generator at 
 
 The mock generator cycles through 10 scenarios that exercise every edge processing path:
 
-| ID | Scenario | Duration | Expected Output |
-|----|----------|----------|-----------------|
-| 0 | Empty room | 10 s | `presence=0`, `motion_energy < thresh` |
-| 1 | Static person | 10 s | `presence=1`, `breathing_rate` in [10, 25], `fall=0` |
-| 2 | Walking person | 10 s | `presence=1`, `motion_energy > 0.5`, `fall=0` |
-| 3 | Fall event | 5 s | `fall=1` flag set, `motion_energy` spike |
-| 4 | Multi-person | 15 s | `n_persons=2`, independent breathing rates |
-| 5 | Channel sweep | 5 s | Frames on channels 1, 6, 11 in sequence |
-| 6 | MAC filter test | 5 s | Frames with wrong MAC dropped (counter check) |
-| 7 | Ring buffer overflow | 3 s | 1000 frames in 100 ms burst, graceful drop |
-| 8 | Boundary RSSI | 5 s | RSSI sweeps -127 to 0, no crash |
-| 9 | Zero-length frame | 2 s | `iq_len=0` frames, serialize returns 0 |
+| ID | Scenario             | Duration | Expected Output                                            |
+| -- | -------------------- | -------- | ---------------------------------------------------------- |
+| 0  | Empty room           | 10 s     | `presence=0`, `motion_energy < thresh`                 |
+| 1  | Static person        | 10 s     | `presence=1`, `breathing_rate` in [10, 25], `fall=0` |
+| 2  | Walking person       | 10 s     | `presence=1`, `motion_energy > 0.5`, `fall=0`        |
+| 3  | Fall event           | 5 s      | `fall=1` flag set, `motion_energy` spike               |
+| 4  | Multi-person         | 15 s     | `n_persons=2`, independent breathing rates               |
+| 5  | Channel sweep        | 5 s      | Frames on channels 1, 6, 11 in sequence                    |
+| 6  | MAC filter test      | 5 s      | Frames with wrong MAC dropped (counter check)              |
+| 7  | Ring buffer overflow | 3 s      | 1000 frames in 100 ms burst, graceful drop                 |
+| 8  | Boundary RSSI        | 5 s      | RSSI sweeps -127 to 0, no crash                            |
+| 9  | Zero-length frame    | 2 s      | `iq_len=0` frames, serialize returns 0                   |
 
 ### NVS Provisioning Matrix
 
 14 NVS configurations are tested in CI to ensure all config paths work correctly:
 
-| Config | NVS Values | Validates |
-|--------|-----------|-----------|
-| `default` | (empty NVS) | Kconfig fallback paths |
-| `wifi-only` | ssid, password | Basic provisioning |
-| `full-adr060` | channel=6, filter_mac=AA:BB:CC:DD:EE:FF | Channel override + MAC filter |
-| `edge-tier0` | edge_tier=0 | Raw CSI passthrough (no DSP) |
-| `edge-tier1` | edge_tier=1, pres_thresh=100, fall_thresh=2000 | Stats-only mode |
+| Config                | NVS Values                                               | Validates                      |
+| --------------------- | -------------------------------------------------------- | ------------------------------ |
+| `default`           | (empty NVS)                                              | Kconfig fallback paths         |
+| `wifi-only`         | ssid, password                                           | Basic provisioning             |
+| `full-adr060`       | channel=6, filter_mac=AA:BB:CC:DD:EE:FF                  | Channel override + MAC filter  |
+| `edge-tier0`        | edge_tier=0                                              | Raw CSI passthrough (no DSP)   |
+| `edge-tier1`        | edge_tier=1, pres_thresh=100, fall_thresh=2000           | Stats-only mode                |
 | `edge-tier2-custom` | edge_tier=2, vital_win=128, vital_int=500, subk_count=16 | Full vitals with custom params |
-| `tdm-3node` | tdm_slot=1, tdm_nodes=3, node_id=1 | TDM mesh timing |
-| `wasm-signed` | wasm_max=4, wasm_verify=1, wasm_pubkey=<32B> | WASM with Ed25519 verification |
-| `wasm-unsigned` | wasm_max=2, wasm_verify=0 | WASM without signature check |
-| `5ghz-channel` | channel=36, filter_mac=... | 5 GHz CSI collection |
-| `boundary-max` | target_port=65535, node_id=255, top_k=32, vital_win=256 | Max-range values |
-| `boundary-min` | target_port=1, node_id=0, top_k=1, vital_win=32 | Min-range values |
-| `power-save` | power_duty=10, edge_tier=0 | Low-power mode |
-| `corrupt-nvs` | (partial/corrupt partition) | Graceful fallback to defaults |
+| `tdm-3node`         | tdm_slot=1, tdm_nodes=3, node_id=1                       | TDM mesh timing                |
+| `wasm-signed`       | wasm_max=4, wasm_verify=1, wasm_pubkey=<32B>             | WASM with Ed25519 verification |
+| `wasm-unsigned`     | wasm_max=2, wasm_verify=0                                | WASM without signature check   |
+| `5ghz-channel`      | channel=36, filter_mac=...                               | 5 GHz CSI collection           |
+| `boundary-max`      | target_port=65535, node_id=255, top_k=32, vital_win=256  | Max-range values               |
+| `boundary-min`      | target_port=1, node_id=0, top_k=1, vital_win=32          | Min-range values               |
+| `power-save`        | power_duty=10, edge_tier=0                               | Low-power mode                 |
+| `corrupt-nvs`       | (partial/corrupt partition)                              | Graceful fallback to defaults  |
 
 Generate all configs for CI testing:
 
@@ -708,22 +719,22 @@ python scripts/generate_nvs_matrix.py
 
 The output validation script (`scripts/validate_qemu_output.py`) parses UART logs and checks:
 
-| Check | Pass Criteria | Severity |
-|-------|---------------|----------|
-| Boot | `app_main()` called, no panic/assert | FATAL |
-| NVS load | `nvs_config:` log line present | FATAL |
-| Mock CSI init | `mock_csi: Starting mock CSI generator` | FATAL |
-| Frame generation | `mock_csi: Generated N frames` where N > 0 | ERROR |
-| Edge pipeline | `edge_processing: DSP task started on Core 1` | ERROR |
-| Vitals output | At least one `vitals:` log line with valid BPM | ERROR |
-| Presence detection | `presence=1` during person scenarios | WARN |
-| Fall detection | `fall=1` during fall scenario | WARN |
-| MAC filter | `csi_collector: MAC filter dropped N frames` where N > 0 | WARN |
-| ADR-018 serialize | `csi_collector: Serialized N frames` where N > 0 | ERROR |
-| No crash | No `Guru Meditation Error`, no `assert failed`, no `abort()` | FATAL |
-| Clean exit | Firmware reaches end of scenario sequence | ERROR |
-| Heap OK | No `HEAP_ERROR` or `out of memory` | FATAL |
-| Stack OK | No `Stack overflow` detected | FATAL |
+| Check              | Pass Criteria                                                     | Severity |
+| ------------------ | ----------------------------------------------------------------- | -------- |
+| Boot               | `app_main()` called, no panic/assert                            | FATAL    |
+| NVS load           | `nvs_config:` log line present                                  | FATAL    |
+| Mock CSI init      | `mock_csi: Starting mock CSI generator`                         | FATAL    |
+| Frame generation   | `mock_csi: Generated N frames` where N > 0                      | ERROR    |
+| Edge pipeline      | `edge_processing: DSP task started on Core 1`                   | ERROR    |
+| Vitals output      | At least one`vitals:` log line with valid BPM                   | ERROR    |
+| Presence detection | `presence=1` during person scenarios                            | WARN     |
+| Fall detection     | `fall=1` during fall scenario                                   | WARN     |
+| MAC filter         | `csi_collector: MAC filter dropped N frames` where N > 0        | WARN     |
+| ADR-018 serialize  | `csi_collector: Serialized N frames` where N > 0                | ERROR    |
+| No crash           | No`Guru Meditation Error`, no `assert failed`, no `abort()` | FATAL    |
+| Clean exit         | Firmware reaches end of scenario sequence                         | ERROR    |
+| Heap OK            | No`HEAP_ERROR` or `out of memory`                             | FATAL    |
+| Stack OK           | No`Stack overflow` detected                                     | FATAL    |
 
 Exit codes: `0` = all pass, `1` = WARN only, `2` = ERROR, `3` = FATAL.
 
@@ -751,15 +762,15 @@ xtensa-esp-elf-gdb build/esp32-csi-node.elf \
 
 Key breakpoints:
 
-| Location | Purpose |
-|----------|---------|
-| `edge_processing.c:dsp_task` | DSP consumer loop entry |
-| `edge_processing.c:presence_detect` | Threshold comparison |
-| `edge_processing.c:fall_detect` | Phase acceleration check |
-| `csi_collector.c:csi_serialize_frame` | ADR-018 serialization |
-| `nvs_config.c:nvs_config_load` | NVS parse logic |
-| `wasm_runtime.c:wasm_on_csi` | WASM module dispatch |
-| `mock_csi.c:mock_generate_csi_frame` | Synthetic frame generation |
+| Location                                | Purpose                    |
+| --------------------------------------- | -------------------------- |
+| `edge_processing.c:dsp_task`          | DSP consumer loop entry    |
+| `edge_processing.c:presence_detect`   | Threshold comparison       |
+| `edge_processing.c:fall_detect`       | Phase acceleration check   |
+| `csi_collector.c:csi_serialize_frame` | ADR-018 serialization      |
+| `nvs_config.c:nvs_config_load`        | NVS parse logic            |
+| `wasm_runtime.c:wasm_on_csi`          | WASM module dispatch       |
+| `mock_csi.c:mock_generate_csi_frame`  | Synthetic frame generation |
 
 VS Code integration -- add to `.vscode/launch.json`:
 
@@ -794,14 +805,14 @@ genhtml coverage_filtered.info --output-directory build/coverage_report
 
 Coverage targets:
 
-| Module | Target |
-|--------|--------|
+| Module                | Target |
+| --------------------- | ------ |
 | `edge_processing.c` | >= 80% |
-| `csi_collector.c` | >= 90% |
-| `nvs_config.c` | >= 95% |
-| `mock_csi.c` | >= 95% |
-| `stream_sender.c` | >= 80% |
-| `wasm_runtime.c` | >= 70% |
+| `csi_collector.c`   | >= 90% |
+| `nvs_config.c`      | >= 95% |
+| `mock_csi.c`        | >= 95% |
+| `stream_sender.c`   | >= 80% |
+| `wasm_runtime.c`    | >= 70% |
 
 ### Fuzz Testing
 
@@ -821,13 +832,13 @@ timeout 300 ./fuzz_serialize corpus/ || true
 
 Fuzz targets:
 
-| Target | Input | Looking For |
-|--------|-------|-------------|
-| `csi_serialize_frame()` | Random `wifi_csi_info_t` | Buffer overflow, NULL deref |
-| `nvs_config_load()` | Crafted NVS partition binary | No crash, fallback to defaults |
-| `edge_enqueue_csi()` | Rapid-fire 10,000 frames | Ring overflow, no data corruption |
-| `rvf_parser.c` | Malformed RVF packets | Parse rejection, no crash |
-| `wasm_upload.c` | Corrupt WASM blobs | Rejection without crash |
+| Target                    | Input                        | Looking For                       |
+| ------------------------- | ---------------------------- | --------------------------------- |
+| `csi_serialize_frame()` | Random`wifi_csi_info_t`    | Buffer overflow, NULL deref       |
+| `nvs_config_load()`     | Crafted NVS partition binary | No crash, fallback to defaults    |
+| `edge_enqueue_csi()`    | Rapid-fire 10,000 frames     | Ring overflow, no data corruption |
+| `rvf_parser.c`          | Malformed RVF packets        | Parse rejection, no crash         |
+| `wasm_upload.c`         | Corrupt WASM blobs           | Rejection without crash           |
 
 ### QEMU CI Workflow
 
@@ -845,18 +856,18 @@ No physical ESP32 hardware is needed in CI.
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| No serial output | Wrong baud rate | Use `115200` in your serial monitor |
-| WiFi won't connect | Wrong SSID/password | Re-run `provision.py` with correct credentials |
-| No UDP frames received | Firewall blocking | Allow inbound UDP on port 5005 (see below) |
-| `idf.py` fails on Windows | Git Bash/MSYS2 incompatibility | Use Docker -- this is the only supported build method on Windows |
-| CSI callback not firing | Promiscuous mode issue | Verify `esp_wifi_set_promiscuous(true)` in `csi_collector.c` |
-| WASM upload rejected | Signature verification | Disable with `wasm_verify=0` via NVS for development, or sign with Ed25519 |
-| High frame drop rate | Ring buffer overflow | Reduce `edge_tier` or increase `dwell_ms` |
-| Vitals readings unstable | Calibration period | Wait 60 seconds for adaptive threshold to settle |
-| OTA update fails | Binary too large | Check binary is < 1 MB; current headroom is ~6% |
-| Docker path error on Windows | MSYS path conversion | Prefix command with `MSYS_NO_PATHCONV=1` |
+| Symptom                      | Cause                          | Fix                                                                         |
+| ---------------------------- | ------------------------------ | --------------------------------------------------------------------------- |
+| No serial output             | Wrong baud rate                | Use`115200` in your serial monitor                                        |
+| WiFi won't connect           | Wrong SSID/password            | Re-run`provision.py` with correct credentials                             |
+| No UDP frames received       | Firewall blocking              | Allow inbound UDP on port 5005 (see below)                                  |
+| `idf.py` fails on Windows  | Git Bash/MSYS2 incompatibility | Use Docker -- this is the only supported build method on Windows            |
+| CSI callback not firing      | Promiscuous mode issue         | Verify`esp_wifi_set_promiscuous(true)` in `csi_collector.c`             |
+| WASM upload rejected         | Signature verification         | Disable with`wasm_verify=0` via NVS for development, or sign with Ed25519 |
+| High frame drop rate         | Ring buffer overflow           | Reduce`edge_tier` or increase `dwell_ms`                                |
+| Vitals readings unstable     | Calibration period             | Wait 60 seconds for adaptive threshold to settle                            |
+| OTA update fails             | Binary too large               | Check binary is < 1 MB; current headroom is ~6%                             |
+| Docker path error on Windows | MSYS path conversion           | Prefix command with`MSYS_NO_PATHCONV=1`                                   |
 
 ### Windows Firewall Rule
 
@@ -870,15 +881,15 @@ netsh advfirewall firewall add rule name="ESP32 CSI" dir=in action=allow protoco
 
 This firmware implements or references the following ADRs:
 
-| ADR | Title | Status |
-|-----|-------|--------|
-| [ADR-018](../../docs/adr/ADR-018-csi-binary-frame-format.md) | CSI binary frame format | Accepted |
-| [ADR-029](../../docs/adr/ADR-029-ruvsense-multistatic-sensing-mode.md) | Channel hopping and TDM protocol | Accepted |
-| [ADR-039](../../docs/adr/ADR-039-esp32-edge-intelligence.md) | Edge intelligence tiers 0-2 | Accepted |
-| [ADR-040](../../docs/adr/) | WASM programmable sensing (Tier 3) with RVF container format | Alpha |
-| [ADR-057](../../docs/adr/ADR-057-build-time-csi-guard.md) | Build-time CSI guard (`CONFIG_ESP_WIFI_CSI_ENABLED`) | Accepted |
-| [ADR-060](../../docs/adr/ADR-060-channel-mac-filter.md) | Channel override and MAC address filter | Accepted |
-| [ADR-061](../../docs/adr/ADR-061-qemu-esp32s3-firmware-testing.md) | QEMU ESP32-S3 emulation for firmware testing | Proposed |
+| ADR                                                                   | Title                                                        | Status   |
+| --------------------------------------------------------------------- | ------------------------------------------------------------ | -------- |
+| [ADR-018](../../docs/adr/ADR-018-csi-binary-frame-format.md)           | CSI binary frame format                                      | Accepted |
+| [ADR-029](../../docs/adr/ADR-029-ruvsense-multistatic-sensing-mode.md) | Channel hopping and TDM protocol                             | Accepted |
+| [ADR-039](../../docs/adr/ADR-039-esp32-edge-intelligence.md)           | Edge intelligence tiers 0-2                                  | Accepted |
+| [ADR-040](../../docs/adr/)                                             | WASM programmable sensing (Tier 3) with RVF container format | Alpha    |
+| [ADR-057](../../docs/adr/ADR-057-build-time-csi-guard.md)              | Build-time CSI guard (`CONFIG_ESP_WIFI_CSI_ENABLED`)       | Accepted |
+| [ADR-060](../../docs/adr/ADR-060-channel-mac-filter.md)                | Channel override and MAC address filter                      | Accepted |
+| [ADR-061](../../docs/adr/ADR-061-qemu-esp32s3-firmware-testing.md)     | QEMU ESP32-S3 emulation for firmware testing                 | Proposed |
 
 ---
 
