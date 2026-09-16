@@ -1,0 +1,81 @@
+{
+ "format_version": 1,
+ "files": {
+  ".gitattributes": {
+   "size": 1519,
+   "blob_id": "a6344aac8c09253b3b630fb776ae94478aa0275b"
+  },
+  "README.md": {
+   "size": 6010,
+   "blob_id": "5b2b513645dad41ceab813010c08aaa10239a75f"
+  },
+  "config.json": {
+   "size": 586,
+   "blob_id": "82553ac5cef179fc7d89733243ecc4bc3120e6af"
+  },
+  "model-q2.bin": {
+   "size": 4096,
+   "blob_id": "e3544385e4ef71c5c5cad8ec15992820733874bf",
+   "lfs_sha256": "1ebcafeb2d05c21fc83e73d18a13f9898f56f6174e8b10a23ec0acbb18a5a9ad",
+   "lfs_size": 4096,
+   "xet_hash": "08b8fa8b72585ce3c1c390b3a5905c6de4871bf1f5c10e18505027cc8eb02c16"
+  },
+  "model-q4.bin": {
+   "size": 8192,
+   "blob_id": "14709dc5b0126aec4789b1a9d550858be93eabca",
+   "lfs_sha256": "4c97dd3696f724389cdd4f423cdc75c18ccb9248a26319257177f4c211674a83",
+   "lfs_size": 8192,
+   "xet_hash": "766e84733756cd00c2f4dd3eda51fc5cf59bf424126fdb0d2484c57eab404d17"
+  },
+  "model-q8.bin": {
+   "size": 16384,
+   "blob_id": "114180bfe9f1b434cd9d9905ce82e8805af6a540",
+   "lfs_sha256": "7c1356de682be372c9fe56308a2f690c20c962505ca85492cf1bffadcfbf3be8",
+   "lfs_size": 16384,
+   "xet_hash": "11bd05f7fafc7b1bd884d83cb8dae6aa9d32ade6dbea19aace043e8f72838460"
+  },
+  "model.rvf.jsonl": {
+   "size": 691,
+   "blob_id": "2e62cb006f4c3c48cc303d198cbe3f8f36581527"
+  },
+  "model.safetensors": {
+   "size": 48840,
+   "blob_id": "272787780af893410589b70128f19f7ae076f97f",
+   "lfs_sha256": "d85fbc9e839908de1d8b885ae3b59dbdf369336c836ecf3f4053c2ce45f6a994",
+   "lfs_size": 48840,
+   "xet_hash": "6cf3229355ccb1b4cbbcf6bd62879215269910cb82cc0f7b15ec7248a2842298"
+  },
+  "node-1.json": {
+   "size": 21697,
+   "blob_id": "16a54fbdd3e89c329b21e72aa2462ce7dd91cb0f"
+  },
+  "node-2.json": {
+   "size": 21660,
+   "blob_id": "5bf6ae5b9ce6d937d2415882f88c9449315cca26"
+  },
+  "presence-head.json": {
+   "size": 2619,
+   "blob_id": "6832218b747e1efb41019ed6295bbd8d1e2353ff"
+  },
+  "training-metrics.json": {
+   "size": 3182,
+   "blob_id": "f173e329500fabb46b123bb17a150d852ec54758"
+  },
+  "wiflow-v1/MODEL_CARD.md": {
+   "size": 958,
+   "blob_id": "da6bff6e1215d1580c023f5c5f5f8d11e8fcc261"
+  },
+  "wiflow-v1/baseline-report.json": {
+   "size": 1018,
+   "blob_id": "173883e492a7c57f46f98f2d1ff3109ce85d76e9"
+  },
+  "wiflow-v1/training-log.json": {
+   "size": 12738,
+   "blob_id": "8ca9528fa9f9f38fc8c31fac243ce3b599125669"
+  },
+  "wiflow-v1/wiflow-v1.json": {
+   "size": 997554,
+   "blob_id": "491ed42932ac9589deb0fc9c7de84bf921c1ee98"
+  }
+ }
+}
