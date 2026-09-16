@@ -311,3 +311,5 @@ v2/crates/wifi-densepose-sensing-server/data/
 # ADR-324: wasm-bindgen output for ruview-offaxis is generated locally
 # (see the crate README); never commit generated artifacts.
 v2/crates/ruview-offaxis/pkg/
+
+.hfvenv/
