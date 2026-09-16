@@ -1,8 +1,9 @@
+# 包
 [package]
 name = "wifi-densepose-sensing-server"
 version = "0.3.5"
 edition.workspace = true
-description = "Lightweight Axum server for WiFi sensing UI with RuVector signal processing"
+description = "Lightweight Axum server for WiFi sensing UI with RuVector signal processing,轻量级Axum服务器WiFi传感UI与RuVector信号处理"
 license.workspace = true
 authors = ["rUv <ruv@ruv.net>", "WiFi-DensePose Contributors"]
 repository.workspace = true

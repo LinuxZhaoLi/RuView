@@ -251,7 +251,7 @@ lto = true # 开启链接时优化，大幅缩减程序体积，提升运行性�
 codegen-units = 1 # 单代码生成单元，最大化优化效果（编译速度变慢）
 panic = "abort" # 代码panic直接终止程序，去掉panic错误堆栈代码，精简体积
 strip = true # 编译后自动移除调试符号，减小二进制文件大小
-opt-level = 3 # 最高级别代码优化
+opt-level = 3 # 最高级别代码优化  3改成2 zsl 20260915
 
 # release-with-debug：带调试信息的发布版本，用于定位运行时bug
 [profile.release-with-debug]
@@ -263,3 +263,6 @@ strip = false
 [profile.bench]
 inherits = "release"
 debug = true
+
+[profile.dev.package."*"] 
+opt-level = 2 # 第三方依赖优化一点，运行快很多，只编译一次

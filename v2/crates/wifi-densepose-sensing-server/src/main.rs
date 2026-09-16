@@ -7786,6 +7786,7 @@ fn coalesce_ui_path(initial: std::path::PathBuf) -> std::path::PathBuf {
 
 #[tokio::main]
 async fn main() {
+    info!("主函数开始");
     // Initialize tracing; with the `otel` feature and
     // OTEL_EXPORTER_OTLP_ENDPOINT set, logs also export over OTLP
     // (service.name = "ruview") — see telemetry.rs. The guard flushes
@@ -7793,14 +7794,17 @@ async fn main() {
     // 初始化追踪；当启用了 `otel` 功能且设置了 OTEL_EXPORTER_OTLP_ENDPOINT 时，
     // 日志也会通过 OTLP 导出（服务名称为 "ruview"）——参见 telemetry.rs。
     // 该 guard 在退出时会刷新待处理的日志记录。
+    info!("初始化追踪");
     let _telemetry = telemetry::init();
     // 解析命令行参数
     let mut args = Args::parse();
+    info!("解析命令行参数");
     args.ui_path = coalesce_ui_path(args.ui_path);
      
-    // Handle --benchmark mode: run vital sign benchmark and exit
-    // 处理基准测试模式：运行 vital sign 检测基准测试并退出
+    // Handle --benchmark mode: 运行生命体征基准测试并退出
+    // 处理基准测试模式：运行生命体征基准测试并退出
     // 若未设置该参数，则不会运行基准测试。
+    info!("处理基准测试模式");
     if args.benchmark {
         eprintln!("运行生命体征检测基准（1000帧）…");
         let (total, per_frame) = vital_signs::run_benchmark(1000);
@@ -7815,6 +7819,7 @@ async fn main() {
     // 处理转换模型参数：将发布后的 HF 模型文件（safetensors 或 model.rvf.jsonl）转换为 RVF 二进制容器 --model 期望的格式，然后退出
     // 若未设置该参数，则不会转换模型。
     // 若转换成功，会输出转换后的模型文件路径。
+    info!("处理转换模型参数");
     if let Some(ref in_path) = args.convert_model {
         let out_path = args
             .convert_out
@@ -7829,6 +7834,9 @@ async fn main() {
     // training pipeline, and short-circuiting here would silently skip training
     // and write placeholder weights (#894 — the documented `--train …
     // --export-rvf` workflow produced a placeholder and never trained).
+    // 处理导出 RVF 参数：导出 CONTAINER-FORMAT DEMO 格式的 RVF 模型（包含占位符权重）——它不是训练好的模型。
+    // 只有在独立运行时才会导出占位符模型（文档化 `--train … --export-rvf` 工作流程生产占位符模型，从未训练）。
+    info!("处理导出 RVF 参数");
     if export_emits_placeholder_demo(args.export_rvf.is_some(), args.train, args.pretrain) {
         let rvf_path = args
             .export_rvf
@@ -7899,6 +7907,8 @@ async fn main() {
     }
 
     // Handle --pretrain mode: self-supervised contrastive pretraining (ADR-024)
+    // 处理预训练模式：自监督对比预训练（ADR-024）
+    info!("处理预训练模式");
     if args.pretrain {
         eprintln!("=== WiFi-DensePose Contrastive Pretraining (ADR-024) ===");
 
@@ -7955,7 +7965,7 @@ async fn main() {
             n_gnn_layers: 2,
         };
         let transformer = graph_transformer::CsiToPoseTransformer::new(tf_config);
-        eprintln!("Transformer params: {}", transformer.param_count());
+        eprintln!("Transformer 参数数量: {}", transformer.param_count());
 
         let trainer_config = trainer::TrainerConfig {
             epochs: args.pretrain_epochs,
@@ -8031,6 +8041,8 @@ async fn main() {
     }
 
     // Handle --embed mode: extract embeddings from CSI data
+    // 处理嵌入模式：从 CSI 数据中提取嵌入
+    info!("处理嵌入模式");
     if args.embed {
         eprintln!("=== WiFi-DensePose Embedding Extraction (ADR-024) ===");
 
@@ -8123,7 +8135,9 @@ async fn main() {
         return;
     }
 
-    // Handle --build-index mode: build a fingerprint index from embeddings
+    // Handle --build-index mode: 从嵌入构建指纹索引
+    // 处理构建指纹索引模式：从嵌入构建指纹索引
+    info!("处理构建指纹索引模式");
     if let Some(ref index_type_str) = args.build_index {
         eprintln!("=== WiFi-DensePose Fingerprint Index Builder (ADR-024) ===");
 
@@ -8180,7 +8194,9 @@ async fn main() {
         return;
     }
 
-    // Handle --train mode: train a model and exit
+    // Handle --train mode: 训练模型并退出
+    info!("处理训练模式");
+    // 处理训练模式：训练模型并退出
     if args.train {
         eprintln!("=== WiFi-DensePose Training Mode ===");
 
@@ -8349,12 +8365,12 @@ async fn main() {
         return;
     }
 
-    info!("WiFi-DensePose Sensing Server (Rust + Axum + RuVector)");
+    info!("WiFi-DensePose传感服务器 (Rust + Axum + RuVector)");
     info!("  HTTP:      http://localhost:{}", args.http_port);
     info!("  WebSocket: ws://localhost:{}/ws/sensing", args.ws_port);
     info!("  UDP:       {}:{} (ESP32 CSI)", args.udp_bind, args.udp_port);
-    info!("  UI path:   {}", args.ui_path.display());
-    info!("  Source:    {}", args.source);
+    info!("  UI 路径:   {}", args.ui_path.display());
+    info!("  数据源:    {}", args.source);
 
     // Resolve the data source into a concrete task plan (issue #1004).
     //
@@ -8369,22 +8385,22 @@ async fn main() {
     // `auto` always bind the UDP :5005 receiver; serve simulated until the first
     // real frame; then `udp_receiver_task` promotes `source` → "esp32". Explicit
     // `--source simulated` stays a hard, UDP-free override for offline demos.
+    // 显式指定 `--source simulated` 保持硬覆盖，用于离线演示。
     let normalized = if args.source == "simulate" { "simulated" } else { args.source.as_str() };
     let plan = if normalized == "auto" {
-        info!("Auto-detecting data source (UDP :{} bound either way)...", args.udp_port);
+        info!("自动检测数据源（UDP :{} 任何方式绑定）...", args.udp_port);
         let esp32 = probe_esp32(args.udp_port).await;
         let wifi = if esp32 { false } else { probe_windows_wifi().await };
         if esp32 {
-            info!("  ESP32 CSI detected on UDP :{}", args.udp_port);
+            info!("  ESP32 CSI 数据源检测到（UDP :{}", args.udp_port);
         } else if wifi {
-            info!("  Windows WiFi detected");
+            info!("  Windows WiFi 数据源检测到");
         } else {
             warn!(
-                "No real CSI source at boot — serving SIMULATED data (tagged as \
-                 'simulated', not production) while the UDP :{} receiver stays bound. \
+                "未检测到真实CSI数据 — 服务器在 UDP :{} receiver stays bound. \
                  The server promotes to live the instant a real frame arrives (issue \
-                 #1004). For an offline demo with no live promotion, pass \
-                 --source simulated explicitly.",
+                 #1004). \
+                 显式指定 `--source simulated` 用于离线演示。",
                 args.udp_port
             );
         }
@@ -8401,10 +8417,13 @@ async fn main() {
 
     // Shared state
     // Vital sign sample rate derives from tick interval (e.g. 500ms tick => 2 Hz)
+    // 500ms 一个 tick，所以样样率是 2 Hz
     let vital_sample_rate = 1000.0 / args.tick_ms as f64;
-    info!("Vital sign detector sample rate: {vital_sample_rate:.1} Hz");
+    info!(" vital样样率: {vital_sample_rate:.1} Hz");
+
 
     // Load RVF container if --load-rvf was specified
+    // 加载 RVF 容器
     let rvf_info = if let Some(ref rvf_path) = args.load_rvf {
         info!("Loading RVF container from {}", rvf_path.display());
         match RvfReader::from_file(rvf_path) {
@@ -8448,6 +8467,7 @@ async fn main() {
     };
 
     // Load trained model via --model (uses progressive loading if --progressive set)
+    // 加载训练模型
     let model_path = args.model.as_ref().or(args.load_rvf.as_ref());
     let mut progressive_loader: Option<ProgressiveLoader> = None;
     let mut model_loaded = false;
@@ -8575,16 +8595,15 @@ async fn main() {
                             }
                         }
                     });
-                    tracing::info!("MQTT publisher started -> {host}:{port}");
+                    tracing::info!("MQTT 发布器启动 -> {host}:{port}");
                 }
-                Err(e) => tracing::error!("MQTT config invalid: {e}; publisher not started"),
+                Err(e) => tracing::error!("MQTT 配置无效: {e}; 发布器未启动"),
             }
         }
         #[cfg(not(feature = "mqtt"))]
         tracing::warn!(
-            "--mqtt set but this binary was built without the `mqtt` feature; the publisher is a \
-             no-op. Use the official Docker image (built `--features mqtt`) or rebuild with \
-             `cargo build -p wifi-densepose-sensing-server --features mqtt`."
+            "--mqtt 设置但二进制文件未构建 `mqtt` 功能；发布器是一个空操作。请使用官方 Docker 镜像或 \
+             使用命令 `cargo build -p wifi-densepose-sensing-server --features mqtt`."
         );
     }
 
@@ -8733,6 +8752,7 @@ async fn main() {
     // and the simulator serves poses in the meantime (it self-suspends once
     // promoted — see `simulated_data_task`). Explicit `--source simulated` has
     // `bind_udp = false`, so it serves simulated data only, with no live binding.
+    // 显式 `--source simulated` 有 `bind_udp = false`，所以它只提供模拟数据，不绑定到任何地址。
     if plan.bind_udp {
         // ADR-296: resolve the UDP bind scope + source allowlist and fail closed
         // on an unguarded routable bind, mirroring the OAuth boot refusal below.
@@ -8803,6 +8823,7 @@ async fn main() {
     // would silently downgrade an operator who asked for OAuth to either an
     // open API or a single-shared-secret one, and they would have no signal
     // that it happened. A loud death at boot is the kind thing here.
+    // 如果 OAuth 被请求但无法初始化，我们退出而不是提供服务。
     let bearer_auth_state =
         match wifi_densepose_sensing_server::bearer_auth::AuthState::from_env() {
             Ok(s) => s,
@@ -8839,10 +8860,15 @@ async fn main() {
     // the set via `--allowed-host` flags or the `SENSING_ALLOWED_HOSTS` env
     // var; `--disable-host-validation` opts out entirely for reverse-proxy
     // setups that already canonicalise `Host`.
+    // 防止 DNS 重定向攻击：在任何处理程序运行之前验证 `Host` 头。
+    // 默认是回环地址（`localhost`、`127.0.0.1`、`[::1]`，每个都有或没有端口）。
+    // 运营商可以通过 `--allowed-host` 标志或 `SENSING_ALLOWED_HOSTS` 环境变量扩展集合。
+    // `--disable-host-validation` 完全退出反向代理设置，这些设置已经规范了 `Host`。
+    // 仅在反向代理后面使用此设置，该设置使服务器可从任何 Host 访问。
     let host_allowlist = if args.disable_host_validation {
         warn!(
-            "Host-header validation DISABLED — server is reachable via any Host. \
-             Only use this behind a reverse proxy that pins Host."
+            "Host 头验证已禁用 — 服务器可通过任何 Host 可访问。 \
+             仅在反向代理后面使用此设置，该设置使服务器可从任何 Host 的规范化版本访问。"
         );
         wifi_densepose_sensing_server::host_validation::HostAllowlist::disabled()
     } else {
@@ -8865,6 +8891,7 @@ async fn main() {
 
     // WebSocket server on dedicated port (8765)
     let ws_state = state.clone();
+    info!("WebSocket 服务已启动，监听端口: {}", args.ws_port);
     let ws_app = Router::new()
         .route("/ws/sensing", get(ws_sensing_handler))
         .route("/health", get(health))
@@ -8902,6 +8929,7 @@ async fn main() {
 
     // HTTP server (serves UI + full DensePose-compatible REST API)
     let ui_path = args.ui_path.clone();
+    info!("HTTP 服务已启动，监听端口: {}", args.http_port);
     let http_app = Router::new()
         .route("/", get(info_page))
         // Health endpoints (DensePose-compatible)
@@ -9138,7 +9166,7 @@ async fn main() {
         }
     }
 
-    info!("Server shut down cleanly");
+    info!("服务器已正常关闭");
 }
 
 #[cfg(test)]
